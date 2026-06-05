@@ -1,0 +1,261 @@
+import SwiftUI
+
+struct GeneralPane: View {
+    @Environment(\.container) private var container
+
+    var body: some View {
+        if let container = container {
+            GeneralPaneContent(
+                container: container,
+                appearance: container.appearancePrefs,
+                prefs: container.tickerPrefs
+            )
+        } else {
+            Text(L("loading", comment: ""))
+        }
+    }
+}
+
+private struct GeneralPaneContent: View {
+    let container: DependencyContainer
+    @ObservedObject var appearance: AppearancePreferences
+    @ObservedObject var prefs: TickerPreferences
+
+    @State private var launchAtLogin: Bool = LaunchAtLoginService.isEnabled
+    @State private var baseCurrency: Currency = .cny
+    @State private var browserTemplate: String = BrowserURLBuilder.Template.xueqiu.rawValue
+    @State private var holdingPopoverMetric: HoldingPopoverMetric = .allTime
+    @State private var hideOnScreenShare: Bool = true
+    @State private var proxyMode: NetworkConfig.ProxyMode = .system
+    @State private var proxyHost: String = ""
+    @State private var proxyPortText: String = "7890"
+
+    /// 语言:不走 @State,直接读写 storage,避免 .onAppear 触发 .onChange
+    private var languageBinding: Binding<LanguageManager.Choice> {
+        Binding(
+            get: {
+                let raw = container.settingsRepo.string(SettingsRepository.Keys.language) ?? "auto"
+                return LanguageManager.Choice(rawValue: raw) ?? .auto
+            },
+            set: { newValue in
+                try? container.settingsRepo.set(SettingsRepository.Keys.language, newValue.rawValue)
+                UserDefaults.standard.set(newValue.rawValue, forKey: "panbar.\(SettingsRepository.Keys.language)")
+                LanguageManager.applyOnLaunch(newValue)
+                UserDefaults.standard.synchronize()
+                LanguageManager.promptRestart()
+            }
+        )
+    }
+
+    var body: some View {
+        Form {
+            Section(header: Text(L("settings.general", comment: "")).font(.title3)) {
+                Toggle(isOn: $launchAtLogin) {
+                    Text(L("settings.launchAtLogin", comment: ""))
+                }
+                .onChange(of: launchAtLogin) { value in
+                    try? LaunchAtLoginService.setEnabled(value)
+                }
+
+                Picker(L("settings.baseCurrency", comment: ""), selection: $baseCurrency) {
+                    ForEach(Currency.allCases, id: \.self) { c in
+                        Text("\(c.rawValue) (\(c.symbol))").tag(c)
+                    }
+                }
+                .onChange(of: baseCurrency) { value in
+                    try? container.settingsRepo.setBaseCurrency(value)
+                    container.refresher.refreshNow()
+                }
+
+                Picker(L("settings.language", comment: ""), selection: languageBinding) {
+                    ForEach(LanguageManager.Choice.allCases) { c in
+                        Text(c.displayName).tag(c)
+                    }
+                }
+
+                Picker(L("settings.theme", comment: ""), selection: $appearance.theme) {
+                    ForEach(AppTheme.allCases) { t in
+                        Text(t.displayName).tag(t)
+                    }
+                }
+
+                Picker(L("settings.density", comment: ""), selection: $appearance.density) {
+                    ForEach(PopoverDensity.allCases) { d in
+                        Text(d.displayName).tag(d)
+                    }
+                }
+
+                Picker(L("settings.holdingPopoverMetric", comment: ""), selection: $holdingPopoverMetric) {
+                    ForEach(HoldingPopoverMetric.allCases) { metric in
+                        Text(metric.displayName).tag(metric)
+                    }
+                }
+                .onChange(of: holdingPopoverMetric) { value in
+                    try? container.settingsRepo.set(SettingsRepository.Keys.holdingPopoverMetric, value.rawValue)
+                }
+
+                Picker(L("settings.colorScheme", comment: ""), selection: $prefs.colorScheme) {
+                    Text(L("scheme.east", comment: "")).tag(TickerColorScheme.east)
+                    Text(L("scheme.west", comment: "")).tag(TickerColorScheme.west)
+                    Text(L("scheme.mono", comment: "")).tag(TickerColorScheme.mono)
+                }
+
+                Picker(L("settings.browser", comment: ""), selection: $browserTemplate) {
+                    ForEach(BrowserURLBuilder.Template.allCases) { t in
+                        Text(t.displayName).tag(t.rawValue)
+                    }
+                }
+                .onChange(of: browserTemplate) { value in
+                    try? container.settingsRepo.set(BrowserURLBuilder.templateKey, value)
+                }
+            }
+
+            Section(header: Text(L("settings.proxySection", comment: "")).font(.headline)) {
+                Picker(L("settings.proxyMode", comment: ""), selection: $proxyMode) {
+                    ForEach(NetworkConfig.ProxyMode.allCases, id: \.self) { m in
+                        Text(m.displayName).tag(m)
+                    }
+                }
+                .onChange(of: proxyMode) { _ in applyProxy() }
+
+                if proxyMode == .manual {
+                    HStack {
+                        Text(L("settings.proxyHost", comment: ""))
+                        TextField("127.0.0.1", text: $proxyHost)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit { applyProxy() }
+                    }
+                    HStack {
+                        Text(L("settings.proxyPort", comment: ""))
+                        TextField("7890", text: $proxyPortText)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit { applyProxy() }
+                    }
+                    Button(L("settings.proxyApply", comment: ""), action: applyProxy)
+                        .controlSize(.small)
+                }
+                Text(L("settings.proxy.hint", comment: ""))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section(header: Text(L("settings.privacySection", comment: "")).font(.headline)) {
+                Toggle(L("settings.hideOnScreenShare", comment: ""), isOn: $hideOnScreenShare)
+                    .onChange(of: hideOnScreenShare) { value in
+                        try? container.settingsRepo.set(SettingsRepository.Keys.hideOnScreenShare, value ? "1" : "0")
+                    }
+                Text(L("settings.hideOnScreenShare.hint", comment: ""))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section(header: Text(L("settings.hotkeysSection", comment: "")).font(.headline)) {
+                ForEach(GlobalHotkey.HotkeyID.allCases, id: \.self) { hotkeyID in
+                    HotkeyRow(container: container, hotkeyID: hotkeyID)
+                }
+                Text(L("settings.hotkeys.hint", comment: ""))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section(header: Text(L("settings.backupSection", comment: "")).font(.headline)) {
+                HStack {
+                    Button {
+                        BackupService(container: container).presentExportPanel()
+                    } label: {
+                        Label(L("backup.exportAll", comment: ""), systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        let svc = BackupService(container: container)
+                        svc.presentImportPanel { summary in
+                            // 重新 register hotkey,因为 settings 全替换了
+                            if let delegate = NSApp.delegate as? AppDelegate {
+                                delegate.applyHotkeys(container: container)
+                            }
+                            container.refresher.refreshNow()
+                            showImportDoneAlert(summary)
+                        }
+                    } label: {
+                        Label(L("backup.importAll", comment: ""), systemImage: "square.and.arrow.down")
+                    }
+                    Spacer()
+                }
+                Text(L("settings.backup.hint", comment: ""))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .padding(20)
+        .onAppear {
+            baseCurrency = container.settingsRepo.baseCurrency
+            browserTemplate = container.settingsRepo.string(BrowserURLBuilder.templateKey) ?? BrowserURLBuilder.Template.xueqiu.rawValue
+            holdingPopoverMetric = HoldingPopoverMetric(
+                rawValue: container.settingsRepo.string(SettingsRepository.Keys.holdingPopoverMetric) ?? ""
+            ) ?? .allTime
+            hideOnScreenShare = container.settingsRepo.string(SettingsRepository.Keys.hideOnScreenShare) != "0"
+            proxyMode = container.settingsRepo.proxyMode
+            proxyHost = container.settingsRepo.proxyHost
+            proxyPortText = "\(container.settingsRepo.proxyPort)"
+        }
+    }
+
+    private func applyProxy() {
+        let port = Int(proxyPortText) ?? 0
+        try? container.settingsRepo.setProxyMode(proxyMode)
+        try? container.settingsRepo.setProxyHost(proxyHost)
+        try? container.settingsRepo.setProxyPort(port)
+        NetworkConfig.apply(mode: proxyMode, host: proxyHost, port: port)
+    }
+}
+
+@MainActor
+private func showImportDoneAlert(_ summary: ImportSummary) {
+    let alert = NSAlert()
+    alert.messageText = L("backup.imported.title", comment: "")
+    alert.informativeText = String(
+        format: L("backup.imported.body", comment: ""),
+        summary.holdingsCount, summary.watchlistCount, summary.alertsCount, summary.settingsCount
+    )
+    alert.alertStyle = .informational
+    alert.addButton(withTitle: L("action.ok", comment: ""))
+    alert.runModal()
+}
+
+/// 单行快捷键编辑器:左侧标签 + 中间录入器 + 右侧"重置默认"按钮。
+private struct HotkeyRow: View {
+    let container: DependencyContainer
+    let hotkeyID: GlobalHotkey.HotkeyID
+    @State private var binding: HotkeyBinding?
+
+    var body: some View {
+        HStack {
+            Text(hotkeyID.displayName)
+            Spacer()
+            HotkeyRecorderField(binding: $binding) { newValue in
+                try? HotkeyStore.save(id: hotkeyID, newValue, to: container.settingsRepo)
+                applyToApp()
+            }
+            Button(action: resetToDefault) {
+                Image(systemName: "arrow.uturn.backward.circle")
+            }
+            .buttonStyle(.borderless)
+            .help(L("hotkey.resetDefault", comment: ""))
+        }
+        .onAppear {
+            binding = HotkeyStore.load(id: hotkeyID, from: container.settingsRepo) ?? hotkeyID.defaultBinding
+        }
+    }
+
+    private func resetToDefault() {
+        binding = hotkeyID.defaultBinding
+        try? HotkeyStore.save(id: hotkeyID, binding, to: container.settingsRepo)
+        applyToApp()
+    }
+
+    private func applyToApp() {
+        if let delegate = NSApp.delegate as? AppDelegate {
+            delegate.applyHotkeys(container: container)
+        }
+    }
+}

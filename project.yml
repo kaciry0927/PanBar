@@ -1,0 +1,110 @@
+name: PanBar
+options:
+  bundleIdPrefix: app.panbar
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+  defaultConfig: Debug
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 PanBar contributors"
+    COMBINE_HIDPI_IMAGES: YES
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: "6.29.0"
+
+targets:
+  PanBar:
+    type: application
+    platform: macOS
+    sources:
+      - path: PanBar
+        excludes:
+          - "**/.DS_Store"
+    resources:
+      - path: PanBar/Resources
+    info:
+      path: PanBar/Resources/Info.plist
+      properties:
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.finance
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleDisplayName: "$(BUNDLE_DISPLAY_NAME)"
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        CFBundleLocalizations:
+          - zh-Hans
+          - en
+        CFBundleDevelopmentRegion: zh-Hans
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: NO
+        ENABLE_PREVIEWS: YES
+        # Swift 模块名固定为 PanBar(否则 Debug 下随 PRODUCT_NAME=PanBar-Dev 变成
+        # PanBar_Dev,测试 target 的 `@testable import PanBar` 会找不到模块)。
+        PRODUCT_MODULE_NAME: PanBar
+        # 默认版本号。CI 通过 `xcodebuild MARKETING_VERSION=x.y.z CURRENT_PROJECT_VERSION=NNN` 覆盖。
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+      configs:
+        Debug:
+          # Debug 用独立 bundle ID + 独立 .app 文件名,可以和正式版并排装互不影响
+          PRODUCT_BUNDLE_IDENTIFIER: app.panbar.PanBar.debug
+          PRODUCT_NAME: PanBar-Dev
+          BUNDLE_DISPLAY_NAME: PanBar Dev
+          # Debug 走无沙盒 entitlements,Sparkle 不需要 Hardened Runtime 也能加载 XPC
+          CODE_SIGN_ENTITLEMENTS: PanBar/Resources/PanBar-Debug.entitlements
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: app.panbar.PanBar
+          PRODUCT_NAME: PanBar
+          BUNDLE_DISPLAY_NAME: PanBar
+          CODE_SIGN_ENTITLEMENTS: PanBar/Resources/PanBar.entitlements
+    dependencies:
+      - package: GRDB
+
+  PanBarTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: PanBarTests
+    dependencies:
+      - target: PanBar
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.panbar.PanBarTests
+        SWIFT_VERSION: "5.0"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+      configs:
+        # 宿主 app 在 Debug/Release 用不同 PRODUCT_NAME(PanBar-Dev / PanBar),
+        # TEST_HOST 必须按配置指到对应可执行文件,否则报 host not found。
+        Debug:
+          TEST_HOST: "$(BUILT_PRODUCTS_DIR)/PanBar-Dev.app/Contents/MacOS/PanBar-Dev"
+        Release:
+          TEST_HOST: "$(BUILT_PRODUCTS_DIR)/PanBar.app/Contents/MacOS/PanBar"
+
+schemes:
+  PanBar:
+    build:
+      targets:
+        PanBar: all
+        PanBarTests: [test]
+    test:
+      config: Debug
+      targets:
+        - PanBarTests
+    run:
+      config: Debug
+    archive:
+      config: Release
