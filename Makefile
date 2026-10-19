@@ -9,7 +9,13 @@
 SHELL := /bin/bash
 PROJECT := PanBar.xcodeproj
 SCHEME := PanBar
-DERIVED := build/dd
+# xcode-select 可能指向 CommandLineTools(跑不了 xcodebuild),这里强制指向 Xcode.app;
+# 已通过环境变量设置 DEVELOPER_DIR 的机器会被 ?= 让步,不覆盖。
+DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer
+export DEVELOPER_DIR
+# DerivedData 路径。TRAE 等沙箱终端写不了项目内 build/,在这些环境里用
+# `make run DERIVED=/tmp/panbar-dd` 覆盖(见 docs/TROUBLESHOOTING.md 2.5)。
+DERIVED ?= build/dd
 APP_NAME := PanBar
 # Debug 用独立 bundle ID + 独立文件名,可以和正式版并排装互不影响
 DEV_APP_NAME := PanBar-Dev
@@ -42,14 +48,26 @@ help:
 	@echo "  make appcast          # 生成 appcast.xml 条目"
 	@echo "  make clean            # 清理产物"
 
-.PHONY: gen
+.PHONY: gen regen
+# PanBar.xcodeproj 已存在则跳过(沙箱终端里 xcodegen 覆盖已存在目录会被拦,见
+# docs/TROUBLESHOOTING.md 2.7;而且生成物本来就可复用)。强制重新生成用 make regen。
 gen:
+	@test -d $(PROJECT) || xcodegen generate
+
+regen:
 	xcodegen generate
 
 .PHONY: build
 build: gen
+	@# Xcode 27 下自定义 -derivedDataPath 需先显式解析包,否则报 Missing package product 'GRDB'(见 docs/TROUBLESHOOTING.md 2.3)
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(DERIVED) \
+		-destination 'platform=macOS' -resolvePackageDependencies
+	@# OTHER_SWIFT_FLAGS=-disable-sandbox: TRAE 等沙箱终端里 SwiftUI 宏插件进程会被
+	@# macOS 沙箱 API 拦截(见 docs/TROUBLESHOOTING.md 2.4);普通终端加此参数也无副作用。
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug -derivedDataPath $(DERIVED) \
+		-destination 'platform=macOS' \
 		CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES \
+		"OTHER_SWIFT_FLAGS=-disable-sandbox" \
 		build
 
 .PHONY: run
