@@ -114,6 +114,16 @@ final class TickerPreferences: ObservableObject {
     @Published var showDirectionArrow: Bool {
         didSet { try? repo.set(SettingsRepository.Keys.tickerShowDirectionArrow, showDirectionArrow ? "1" : "0") }
     }
+    /// 面板(popover)顶部汇总卡片的显隐。默认全部显示。
+    @Published var popoverShowTodayPnL: Bool {
+        didSet { try? repo.set(SettingsRepository.Keys.popoverShowTodayPnL, popoverShowTodayPnL ? "1" : "0") }
+    }
+    @Published var popoverShowAllTimePnL: Bool {
+        didSet { try? repo.set(SettingsRepository.Keys.popoverShowAllTimePnL, popoverShowAllTimePnL ? "1" : "0") }
+    }
+    @Published var popoverShowTotalAssets: Bool {
+        didSet { try? repo.set(SettingsRepository.Keys.popoverShowTotalAssets, popoverShowTotalAssets ? "1" : "0") }
+    }
     /// 价格显示的小数位数(2 / 3 / 4),同时作用于菜单栏滚动条与面板里的个股 / 指数价格。
     /// ETF 时价常到小数点后三位(如 1.124),默认两位不够用。
     @Published var priceFractionDigits: Int {
@@ -199,6 +209,10 @@ final class TickerPreferences: ObservableObject {
         self.carouselAutoWidth = repo.string(SettingsRepository.Keys.tickerCarouselAutoWidth) == "1"
         self.compactAutoWidth = repo.string(SettingsRepository.Keys.tickerCompactAutoWidth) != "0"
         self.showDirectionArrow = repo.string(SettingsRepository.Keys.tickerShowDirectionArrow) == "1"
+        // 缺省视为显示(与旧行为一致:面板顶部三张卡片默认全开)
+        self.popoverShowTodayPnL = repo.string(SettingsRepository.Keys.popoverShowTodayPnL) != "0"
+        self.popoverShowAllTimePnL = repo.string(SettingsRepository.Keys.popoverShowAllTimePnL) != "0"
+        self.popoverShowTotalAssets = repo.string(SettingsRepository.Keys.popoverShowTotalAssets) != "0"
         self.priceFractionDigits = Self.clampPriceFractionDigits(
             Int(repo.string(SettingsRepository.Keys.priceFractionDigits) ?? "") ?? 2
         )

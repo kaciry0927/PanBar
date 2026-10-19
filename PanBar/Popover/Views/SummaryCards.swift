@@ -6,27 +6,33 @@ struct SummaryCards: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            card(
-                label: L("summary.today", comment: ""),
-                value: signed(snapshot.todayPnL, currency: snapshot.baseCurrency),
-                sub: pct(snapshot.todayPnLPct),
-                tone: tone(for: snapshot.todayPnL),
-                featured: false
-            )
-            card(
-                label: L("summary.allTime", comment: ""),
-                value: signed(snapshot.allTimePnL, currency: snapshot.baseCurrency),
-                sub: pct(snapshot.allTimePnLPct),
-                tone: tone(for: snapshot.allTimePnL),
-                featured: false
-            )
-            card(
-                label: L("summary.totalAssets", comment: ""),
-                value: snapshot.baseCurrency.format(snapshot.totalAssets),
-                sub: "\(snapshot.baseCurrency.rawValue) · " + String(format: L("summary.positions", comment: ""), snapshot.positions.count),
-                tone: .neutral,
-                featured: true
-            )
+            if prefs.popoverShowTodayPnL {
+                card(
+                    label: L("summary.today", comment: ""),
+                    value: signed(snapshot.todayPnL, currency: snapshot.baseCurrency),
+                    sub: pct(snapshot.todayPnLPct),
+                    tone: tone(for: snapshot.todayPnL),
+                    featured: false
+                )
+            }
+            if prefs.popoverShowAllTimePnL {
+                card(
+                    label: L("summary.allTime", comment: ""),
+                    value: signed(snapshot.allTimePnL, currency: snapshot.baseCurrency),
+                    sub: pct(snapshot.allTimePnLPct),
+                    tone: tone(for: snapshot.allTimePnL),
+                    featured: false
+                )
+            }
+            if prefs.popoverShowTotalAssets {
+                card(
+                    label: L("summary.totalAssets", comment: ""),
+                    value: snapshot.baseCurrency.format(snapshot.totalAssets),
+                    sub: "\(snapshot.baseCurrency.rawValue) · " + String(format: L("summary.positions", comment: ""), snapshot.positions.count),
+                    tone: .neutral,
+                    featured: true
+                )
+            }
         }
     }
 

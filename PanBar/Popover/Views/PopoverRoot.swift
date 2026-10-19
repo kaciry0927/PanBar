@@ -3,6 +3,7 @@ import SwiftUI
 struct PopoverRoot: View {
     @EnvironmentObject var vm: PopoverViewModel
     @EnvironmentObject var refresher: QuoteRefresher
+    @EnvironmentObject var prefs: TickerPreferences
     @Environment(\.container) private var container
 
     /// 每 30 秒强制重算市场状态(开市/午休/休市切换);用 timer trigger 让 @State 变化触发重渲染
@@ -12,9 +13,11 @@ struct PopoverRoot: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            SummaryCards(snapshot: refresher.snapshot)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
+            if summaryCardsVisible {
+                SummaryCards(snapshot: refresher.snapshot)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 10)
+            }
             tabs
             Divider()
             content
@@ -22,6 +25,11 @@ struct PopoverRoot: View {
             footer
         }
         .onReceive(statusTimer) { statusTick = $0 }
+    }
+
+    /// 三张汇总卡片全部关闭时,把整块区域(含留白)收起。
+    private var summaryCardsVisible: Bool {
+        prefs.popoverShowTodayPnL || prefs.popoverShowAllTimePnL || prefs.popoverShowTotalAssets
     }
 
     private var header: some View {

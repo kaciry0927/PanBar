@@ -80,6 +80,9 @@ struct SettingsRepository {
         static let tickerMinimalMetric = "ticker_minimal_metric"
         static let tickerCarouselDwell = "ticker_carousel_dwell"
         static let tickerShowDirectionArrow = "ticker_show_direction_arrow"
+        static let popoverShowTodayPnL = "popover_show_today_pnl"       // 面板顶部"今日"卡片
+        static let popoverShowAllTimePnL = "popover_show_alltime_pnl"   // 面板顶部"累计"卡片
+        static let popoverShowTotalAssets = "popover_show_total_assets" // 面板顶部"总资产"卡片
         static let priceFractionDigits = "price_fraction_digits"
         static let holdingPopoverMetric = "holding_popover_metric"
         static let proxyMode = "proxy_mode"            // off / system / manual

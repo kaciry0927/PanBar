@@ -98,6 +98,36 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%d 只持仓" } }
       }
     },
+    "popover.summarySection" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Panel summary cards" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "面板汇总卡片" } }
+      }
+    },
+    "popover.showTodayPnL" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show today's P&L" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示今日" } }
+      }
+    },
+    "popover.showAllTimePnL" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show all-time P&L" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示累计" } }
+      }
+    },
+    "popover.showTotalAssets" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show total assets" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示总资产" } }
+      }
+    },
+    "popover.summaryHint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Toggles the three summary cards at the top of the panel. Hiding all of them removes the section." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "控制面板顶部三张汇总卡片的显隐,全部关闭后整块区域收起。" } }
+      }
+    },
     "popover.subtitle.markets" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "%d markets" } },

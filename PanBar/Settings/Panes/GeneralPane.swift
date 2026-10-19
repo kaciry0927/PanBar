@@ -119,6 +119,15 @@ private struct GeneralPaneContent: View {
                 }
             }
 
+            Section(header: Text(L("popover.summarySection", comment: "")).font(.headline)) {
+                Toggle(L("popover.showTodayPnL", comment: ""), isOn: $prefs.popoverShowTodayPnL)
+                Toggle(L("popover.showAllTimePnL", comment: ""), isOn: $prefs.popoverShowAllTimePnL)
+                Toggle(L("popover.showTotalAssets", comment: ""), isOn: $prefs.popoverShowTotalAssets)
+                Text(L("popover.summaryHint", comment: ""))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             Section(header: Text(L("settings.proxySection", comment: "")).font(.headline)) {
                 Picker(L("settings.proxyMode", comment: ""), selection: $proxyMode) {
                     ForEach(NetworkConfig.ProxyMode.allCases, id: \.self) { m in
