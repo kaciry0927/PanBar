@@ -48,7 +48,8 @@ final class TickerView: NSView {
         if let preferredTotalWidth {
             return max(40, preferredTotalWidth)
         }
-        return leadingTextX + visibleTextWidth + 4
+        // 内容宽度 + 极小边距,不额外留白
+        return leadingTextX + visibleTextWidth
     }
 
     private var leadingTextX: CGFloat {
@@ -84,7 +85,7 @@ final class TickerView: NSView {
         self.attributed = attributed
         self.attributedWidth = attributed.size().width
         if attributedWidth > 0 {
-            visibleTextWidth = min(520, max(20, attributedWidth + 8))
+            visibleTextWidth = min(520, max(20, attributedWidth + 2))
         } else {
             visibleTextWidth = 0
         }
@@ -158,7 +159,7 @@ final class TickerView: NSView {
         let textRect = NSRect(
             x: leadingTextX,
             y: 0,
-            width: max(20, totalWidth - leadingTextX - 4),
+            width: max(20, totalWidth - leadingTextX),
             height: bounds.height
         )
 

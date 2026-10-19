@@ -35,7 +35,8 @@ final class CarouselTickerView: NSView {
         if let preferredTotalWidth {
             return max(40, preferredTotalWidth)
         }
-        return leadingTextX + visibleTextWidth + 4
+        // 最宽 slot + 极小边距,不额外留白
+        return leadingTextX + visibleTextWidth
     }
 
     private var leadingTextX: CGFloat {
@@ -71,7 +72,7 @@ final class CarouselTickerView: NSView {
         if currentIndex >= items.count { currentIndex = 0 }
         let maxW = items.map { $0.size().width }.max() ?? 0
         if maxW > 0 {
-            visibleTextWidth = min(360, max(100, maxW + 8))
+            visibleTextWidth = min(360, max(20, maxW + 2))
         } else {
             visibleTextWidth = 0
         }
@@ -144,7 +145,7 @@ final class CarouselTickerView: NSView {
         let textRect = NSRect(
             x: leadingTextX,
             y: 0,
-            width: max(20, totalWidth - leadingTextX - 4),
+            width: max(20, totalWidth - leadingTextX),
             height: bounds.height
         )
 

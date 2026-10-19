@@ -46,7 +46,7 @@ final class CompactTickerView: NSView {
         if let preferredTotalWidth {
             return max(40, preferredTotalWidth)
         }
-        return iconWidth + 6 + max(60, width) + 4
+        return iconWidth + 6 + width
     }
 
     override var isFlipped: Bool { false }

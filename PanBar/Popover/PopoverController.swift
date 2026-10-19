@@ -21,13 +21,13 @@ final class PopoverController {
     private let popover: NSPopover
     private let refresher: QuoteRefresher
     private let viewModel: PopoverViewModel
-    private let holdingsRepo: HoldingsRepository
     private let appearancePrefs: AppearancePreferences
     private let tickerPrefs: TickerPreferences
     private let container: DependencyContainer
-    private let minimumPopoverWidth: CGFloat = 360
-    private let popoverHeight: CGFloat = 520
-    private let metricsGridWidth: CGFloat = 104
+    /// 宽高都由 SwiftUI 内容的自然尺寸决定(preferredContentSize),这里只夹紧
+    /// 宽度下限(避免空内容时过窄)和上限(防超长名称撑爆屏幕)。
+    private let minimumPopoverWidth: CGFloat = 300
+    private let maximumPopoverWidth: CGFloat = 720
     /// 监听 popover 之外的点击,关 popover。`.transient` 行为对菜单栏 popover 有时漏
     /// (尤其是点系统菜单栏 / 通知 / 其它 app 时),这里多加一层保险。
     private var eventMonitor: Any?
@@ -52,25 +52,16 @@ final class PopoverController {
             watchlistRepo: watchlistRepo,
             settingsRepo: settingsRepo
         )
-        self.holdingsRepo = holdingsRepo
         self.appearancePrefs = appearancePrefs
         self.tickerPrefs = tickerPrefs
         self.container = container
 
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 360, height: 520)
-        popover.contentViewController = NoSafeAreaHostingController(rootView:
-            PopoverRoot()
-                .environmentObject(viewModel)
-                .environmentObject(refresher)
-                .environmentObject(appearancePrefs)
-                .environmentObject(tickerPrefs)
-                .environment(\.container, container)  // 修复:之前没注入,导致 IndicesTab 拿不到 indexService
-                .frame(width: 360, height: 520)
-                .ignoresSafeArea()
-        )
-        self.popover = popover
+        self.popover = popover  // 先完成全部存储属性初始化,才能调用实例方法
+        let host = makeContentController()
+        popover.contentViewController = host
+        popover.contentSize = host.preferredContentSize
 
         // popover 通过 .transient 行为自己关时,也要更新 refresher 状态
         // (否则 pace 会一直停在 .popoverOpen,后台多耗一点请求)
@@ -99,147 +90,28 @@ final class PopoverController {
     }
 
     func show(relativeTo view: NSView, anchorWidth: CGFloat? = nil) {
-        let width = preferredPopoverWidth(screen: view.window?.screen)
-        applyContentWidth(width)
         refresher.setPopoverOpen(true)
         refresher.refreshNow()
         popover.show(relativeTo: positioningRect(relativeTo: view, anchorWidth: anchorWidth), of: view, preferredEdge: .minY)
         startOutsideClickMonitor()
     }
 
-    private func applyContentWidth(_ width: CGFloat) {
-        popover.contentSize = NSSize(width: width, height: popoverHeight)
-        popover.contentViewController = NoSafeAreaHostingController(rootView:
-            PopoverRoot()
-                .environmentObject(viewModel)
-                .environmentObject(refresher)
-                .environmentObject(appearancePrefs)
-                .environmentObject(tickerPrefs)
-                .environment(\.container, container)
-                .frame(width: width, height: popoverHeight)
-                .ignoresSafeArea()
-        )
-    }
-
-    private func preferredPopoverWidth(screen: NSScreen?) -> CGFloat {
-        let holdings = (try? holdingsRepo.all()) ?? viewModel.holdings
-        guard !holdings.isEmpty else { return minimumPopoverWidth }
-
-        let positionsByID = Dictionary(uniqueKeysWithValues: refresher.snapshot.positions.map { ($0.holding.id, $0) })
-        var widestRow: CGFloat = minimumPopoverWidth
-
-        for holding in holdings {
-            let quote = refresher.quotes[holding.symbol] ?? positionsByID[holding.id]?.quote
-            widestRow = max(widestRow, estimatedHoldingRowWidth(holding: holding, quote: quote))
-        }
-
-        return min(maximumPopoverWidth(screen: screen), max(minimumPopoverWidth, ceil(widestRow)))
-    }
-
-    private func estimatedHoldingRowWidth(holding: Holding, quote: Quote?) -> CGFloat {
-        let position = refresher.snapshot.positions.first { $0.holding.id == holding.id }
-        let rowPadding = appearancePrefs.density.rowHorizontalPadding * 2
-        let titleWidth = textWidth(displayCode(holding.symbol), size: 11, weight: .regular)
-            + 4
-            + textWidth(holding.name, size: 12, weight: .semibold)
-            + 14
-        let detailWidth = textWidth(detailText(for: holding), size: 10, weight: .regular)
-        let leftWidth = max(titleWidth, detailWidth)
-        let metricsWidth = max(metricsGridWidth, estimatedMetricsGridWidth(holding: holding, quote: quote, position: position))
-
-        return leftWidth + 8 + metricsWidth + rowPadding + 14
-    }
-
-    private func maximumPopoverWidth(screen: NSScreen?) -> CGFloat {
-        let screenWidth = (screen ?? NSScreen.main)?.visibleFrame.width ?? 900
-        return max(minimumPopoverWidth, min(760, screenWidth - 80))
-    }
-
-    private func estimatedMetricsGridWidth(holding: Holding, quote: Quote?, position: HoldingPosition?) -> CGFloat {
-        let metricMode = holdingPopoverMetric
-        return max(
-            estimatedQuoteWidth(holding: holding, quote: quote),
-            metricLineWidth(
-                label: metricMode.displayName,
-                value: nativeMetric(holding: holding, quote: quote, mode: metricMode),
-                currency: holding.currency
-            ),
-            baseMetricWidth(value: baseMetric(position: position, mode: metricMode))
-        )
-    }
-
-    private func metricLineWidth(label: String, value: Decimal?, currency: Currency) -> CGFloat {
-        textWidth(label, size: 10, weight: .medium)
-            + 3
-            + textWidth(value.map { signedPnL($0, currency: currency) } ?? "—", size: 11, weight: .semibold)
-    }
-
-    private func baseMetricWidth(value: Decimal?) -> CGFloat {
-        textWidth(value.map { "≈ " + signedPnL($0, currency: refresher.snapshot.baseCurrency) } ?? "—", size: 11, weight: .semibold)
-    }
-
-    private var holdingPopoverMetric: HoldingPopoverMetric {
-        HoldingPopoverMetric(rawValue: container.settingsRepo.string(SettingsRepository.Keys.holdingPopoverMetric) ?? "") ?? .allTime
-    }
-
-    private func nativePnL(holding: Holding, quote: Quote?) -> Decimal? {
-        guard let quote else { return nil }
-        return (quote.price - holding.costPrice) * holding.quantity
-    }
-
-    private func nativeTodayPnL(holding: Holding, quote: Quote?) -> Decimal? {
-        guard let quote else { return nil }
-        return (quote.price - quote.prevClose) * holding.quantity
-    }
-
-    private func nativeMetric(holding: Holding, quote: Quote?, mode: HoldingPopoverMetric) -> Decimal? {
-        switch mode {
-        case .allTime:
-            return nativePnL(holding: holding, quote: quote)
-        case .today:
-            return nativeTodayPnL(holding: holding, quote: quote)
-        }
-    }
-
-    private func baseMetric(position: HoldingPosition?, mode: HoldingPopoverMetric) -> Decimal? {
-        switch mode {
-        case .allTime:
-            return position?.basePnL
-        case .today:
-            return position?.baseTodayPnL
-        }
-    }
-
-    private func estimatedQuoteWidth(holding: Holding, quote: Quote?) -> CGFloat {
-        guard let quote else {
-            return textWidth("—", size: 12, weight: .semibold)
-        }
-        let price = holding.currency.format(quote.price, fractionDigits: tickerPrefs.priceFractionDigits)
-        let pct = String(format: "%+.2f%%", quote.changePct * 100)
-        return textWidth(price, size: 12, weight: .semibold)
-            + 5
-            + textWidth(pct, size: 10, weight: .semibold)
-            + 10
-    }
-
-    private func textWidth(_ text: String, size: CGFloat, weight: NSFont.Weight) -> CGFloat {
-        let font = NSFont.systemFont(ofSize: size, weight: weight)
-        return ceil((text as NSString).size(withAttributes: [.font: font]).width)
-    }
-
-    private func displayCode(_ symbol: SymbolID) -> String {
-        symbol.market == .us ? symbol.code.uppercased() : symbol.code
-    }
-
-    private func detailText(for holding: Holding) -> String {
-        let qtyDisplay = "\(holding.quantity)"
-        let costDisplay = holding.currency.format(holding.costPrice, fractionDigits: 3)
-        return String(format: L("holding.detail", comment: ""), qtyDisplay, costDisplay)
-    }
-
-    private func signedPnL(_ value: Decimal, currency: Currency) -> String {
-        let sign = value >= 0 ? "+" : "-"
-        return sign + currency.format(value.magnitude)
+    /// 构造 popover 内容的 hosting controller。
+    /// 尺寸不写死:sizingOptions = [.preferredContentSize] 让 preferredContentSize
+    /// 跟随 SwiftUI 内容的自然宽高(各 tab 内部已有 maxHeight 上限,过长时滚动),
+    /// NSPopover 会在内容变化(切 tab / 增删持仓等)时自动动画调整大小。
+    private func makeContentController() -> NoSafeAreaHostingController<AnyView> {
+        let root = PopoverRoot()
+            .environmentObject(viewModel)
+            .environmentObject(refresher)
+            .environmentObject(appearancePrefs)
+            .environmentObject(tickerPrefs)
+            .environment(\.container, container)
+            .frame(minWidth: minimumPopoverWidth, maxWidth: maximumPopoverWidth)
+            .ignoresSafeArea()
+        let host = NoSafeAreaHostingController(rootView: AnyView(root))
+        host.sizingOptions = [.preferredContentSize]
+        return host
     }
 
     private func positioningRect(relativeTo view: NSView, anchorWidth: CGFloat?) -> NSRect {

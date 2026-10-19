@@ -26,7 +26,7 @@ final class MinimalTickerView: NSView {
             return max(40, preferredTotalWidth)
         }
         guard let _ = content else { return leadingTextX + 40 }
-        return leadingTextX + max(56, renderedString().size().width) + 6
+        return leadingTextX + renderedString().size().width
     }
 
     private var leadingTextX: CGFloat {
