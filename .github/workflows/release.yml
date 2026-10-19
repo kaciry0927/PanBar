@@ -41,7 +41,21 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      - name: Detect signing credentials
+        id: creds
+        env:
+          CERT_P12: ${{ secrets.MAC_DEVELOPER_ID_P12_BASE64 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          if [[ -n "$CERT_P12" && -n "$APPLE_ID" ]]; then
+            echo "mode=signed" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=unsigned" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No signing secrets configured — building an UNSIGNED (ad-hoc) release"
+          fi
+
       - name: Import signing certificate
+        if: steps.creds.outputs.mode == 'signed'
         env:
           CERT_P12_BASE64: ${{ secrets.MAC_DEVELOPER_ID_P12_BASE64 }}
           CERT_PASSWORD: ${{ secrets.MAC_DEVELOPER_ID_P12_PASSWORD }}
@@ -65,7 +79,8 @@ jobs:
           # 诊断:确认证书 + 私钥都在
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
-      - name: Archive & export
+      - name: Archive & export (signed)
+        if: steps.creds.outputs.mode == 'signed'
         env:
           VERSION: ${{ steps.ver.outputs.version }}
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -90,7 +105,33 @@ jobs:
             -exportOptionsPlist build/export-options.plist \
             -exportPath build/Release
 
+      - name: Build (unsigned, ad-hoc)
+        if: steps.creds.outputs.mode == 'unsigned'
+        run: |
+          xcodebuild \
+            -project PanBar.xcodeproj \
+            -scheme PanBar \
+            -configuration Release \
+            -derivedDataPath build/dd \
+            -destination 'platform=macOS' \
+            -resolvePackageDependencies
+          xcodebuild \
+            -project PanBar.xcodeproj \
+            -scheme PanBar \
+            -configuration Release \
+            -derivedDataPath build/dd \
+            -destination 'platform=macOS' \
+            MARKETING_VERSION=${{ steps.ver.outputs.version }} \
+            CURRENT_PROJECT_VERSION=$(date +%s) \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            build
+          mkdir -p build/Release
+          cp -R build/dd/Build/Products/Release/PanBar.app build/Release/
+          codesign --verify --deep --strict build/Release/PanBar.app
+
       - name: Notarize & staple
+        if: steps.creds.outputs.mode == 'signed'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -151,9 +192,15 @@ jobs:
             git tag $TAG
             git push origin $TAG
           fi
+          # 无签名版在 Release 说明里加一句绕过 Gatekeeper 的提示
+          EXTRA_NOTES=""
+          if [[ "${{ steps.creds.outputs.mode }}" != "signed" ]]; then
+            EXTRA_NOTES="⚠️ 此版本未经过 Apple 公证。首次打开若提示“无法验证开发者”：右键 App → 打开；或终端执行 xattr -dr com.apple.quarantine /Applications/PanBar.app"
+          fi
           gh release create "$TAG" \
             --title "PanBar $VERSION" \
             --generate-notes \
+            ${EXTRA_NOTES:+--notes "$EXTRA_NOTES"} \
             build/PanBar-$VERSION.dmg \
             build/PanBar-$VERSION.zip
 
