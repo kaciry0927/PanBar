@@ -38,3 +38,6 @@ panbar.sqlite-*
 
 # 本地草稿:推广文案 / scratch notes,不跟随发布
 .docs/
+
+# 本地文档:不进入仓库与 git 历史
+/docs/*.md
