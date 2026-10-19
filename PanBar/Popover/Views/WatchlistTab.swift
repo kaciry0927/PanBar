@@ -14,7 +14,7 @@ struct WatchlistTab: View {
                         emptyState
                     } else {
                         ForEach(vm.watchlist) { item in
-                            WatchRow(item: item, quote: refresher.quotes[item.symbol], density: appearance.density, scheme: prefs.colorScheme)
+                            WatchRow(item: item, quote: refresher.quotes[item.symbol], density: appearance.density, scheme: prefs.colorScheme, priceFractionDigits: prefs.priceFractionDigits)
                                 .contextMenu {
                                     Button(L("action.openInBrowser", comment: "")) {
                                         openInBrowser(item.symbol)
@@ -91,6 +91,8 @@ private struct WatchRow: View {
     let quote: Quote?
     let density: PopoverDensity
     let scheme: TickerColorScheme
+    /// 价格显示小数位数(用户设置)。
+    let priceFractionDigits: Int
 
     var body: some View {
         HStack {
@@ -105,7 +107,7 @@ private struct WatchRow: View {
             Spacer()
             if let q = quote {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(item.symbol.market.defaultCurrency.format(q.price))
+                    Text(item.symbol.market.defaultCurrency.format(q.price, fractionDigits: priceFractionDigits))
                         .font(.system(size: 12, weight: .semibold))
                         .monospacedDigit()
                     Text(String(format: "%+.2f%%", q.changePct * 100))

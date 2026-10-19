@@ -22,6 +22,8 @@ struct TickerRenderer {
     var font: NSFont = NSFont.menuBarFont(ofSize: 0)
     var showsQuoteCode: Bool = true
     var showsQuoteName: Bool = true
+    /// 价格显示小数位数(个股 / 指数),由用户在设置里配置。
+    var priceFractionDigits: Int = 2
 
     /// 涨色 / 跌色:走 SemanticColors,与 Popover 保持一致 + 菜单栏对比度优化。
     private var upColor: NSColor { SemanticColors.upNS(scheme: scheme) }
@@ -165,8 +167,8 @@ struct TickerRenderer {
 
     private func formatPrice(_ price: Decimal) -> String {
         let fmt = NumberFormatter()
-        fmt.minimumFractionDigits = 2
-        fmt.maximumFractionDigits = 2
+        fmt.minimumFractionDigits = priceFractionDigits
+        fmt.maximumFractionDigits = priceFractionDigits
         return fmt.string(from: NSDecimalNumber(decimal: price)) ?? "\(price)"
     }
 }

@@ -80,6 +80,7 @@ struct SettingsRepository {
         static let tickerMinimalMetric = "ticker_minimal_metric"
         static let tickerCarouselDwell = "ticker_carousel_dwell"
         static let tickerShowDirectionArrow = "ticker_show_direction_arrow"
+        static let priceFractionDigits = "price_fraction_digits"
         static let holdingPopoverMetric = "holding_popover_metric"
         static let proxyMode = "proxy_mode"            // off / system / manual
         static let proxyHost = "proxy_host"

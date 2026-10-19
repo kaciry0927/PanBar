@@ -114,6 +114,18 @@ final class TickerPreferences: ObservableObject {
     @Published var showDirectionArrow: Bool {
         didSet { try? repo.set(SettingsRepository.Keys.tickerShowDirectionArrow, showDirectionArrow ? "1" : "0") }
     }
+    /// 价格显示的小数位数(2 / 3 / 4),同时作用于菜单栏滚动条与面板里的个股 / 指数价格。
+    /// ETF 时价常到小数点后三位(如 1.124),默认两位不够用。
+    @Published var priceFractionDigits: Int {
+        didSet {
+            let clamped = Self.clampPriceFractionDigits(priceFractionDigits)
+            if clamped != priceFractionDigits {
+                priceFractionDigits = clamped
+            } else {
+                try? repo.set(SettingsRepository.Keys.priceFractionDigits, "\(priceFractionDigits)")
+            }
+        }
+    }
 
     private let repo: SettingsRepository
 
@@ -131,6 +143,11 @@ final class TickerPreferences: ObservableObject {
 
     private static func clampCompactMenuBarWidth(_ value: Int) -> Int {
         min(360, max(60, value))
+    }
+
+    /// 小数位数限制在 0...6,避免 NumberFormatter 出现异常值。
+    private static func clampPriceFractionDigits(_ value: Int) -> Int {
+        min(6, max(0, value))
     }
 
     init(repo: SettingsRepository) {
@@ -182,6 +199,9 @@ final class TickerPreferences: ObservableObject {
         self.carouselAutoWidth = repo.string(SettingsRepository.Keys.tickerCarouselAutoWidth) == "1"
         self.compactAutoWidth = repo.string(SettingsRepository.Keys.tickerCompactAutoWidth) != "0"
         self.showDirectionArrow = repo.string(SettingsRepository.Keys.tickerShowDirectionArrow) == "1"
+        self.priceFractionDigits = Self.clampPriceFractionDigits(
+            Int(repo.string(SettingsRepository.Keys.priceFractionDigits) ?? "") ?? 2
+        )
         migrateMinimalModeIfNeeded()
     }
 

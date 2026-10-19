@@ -66,7 +66,8 @@ final class StatusItemController {
         renderer = TickerRenderer(
             scheme: prefs.colorScheme,
             showsQuoteCode: prefs.showQuoteCode,
-            showsQuoteName: prefs.showQuoteName
+            showsQuoteName: prefs.showQuoteName,
+            priceFractionDigits: prefs.priceFractionDigits
         )
         // mode 变化:整个 view 都要换
         if prefs.displayMode != currentMode {

@@ -61,6 +61,7 @@ struct HoldingsTab: View {
                                 baseCurrency: refresher.snapshot.baseCurrency,
                                 metricsLayout: metricsLayout,
                                 metricMode: holdingPopoverMetric,
+                                priceFractionDigits: prefs.priceFractionDigits,
                                 showEditButton: hoveredID == holding.id,
                                 onEdit: { openEdit(holding) }
                             )
@@ -181,7 +182,7 @@ struct HoldingsTab: View {
         guard let quote else {
             return textWidth("—", size: 12, weight: .semibold)
         }
-        let price = holding.currency.format(quote.price)
+        let price = holding.currency.format(quote.price, fractionDigits: prefs.priceFractionDigits)
         let pct = String(format: "%+.2f%%", quote.changePct * 100)
         return textWidth(price, size: 12, weight: .semibold)
             + 5
@@ -233,6 +234,8 @@ private struct HoldingRow: View {
     let baseCurrency: Currency
     let metricsLayout: HoldingMetricsLayout
     let metricMode: HoldingPopoverMetric
+    /// 价格显示小数位数(用户设置)。
+    let priceFractionDigits: Int
     /// hover 时显示 inline 编辑铅笔(放在 name 后面,不挡涨跌)
     let showEditButton: Bool
     let onEdit: () -> Void
@@ -347,7 +350,7 @@ private struct HoldingRow: View {
     private var quoteHeader: some View {
         HStack(spacing: 5) {
             if let q = quote {
-                Text(holding.currency.format(q.price))
+                Text(holding.currency.format(q.price, fractionDigits: priceFractionDigits))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.primary)
                     .monospacedDigit()

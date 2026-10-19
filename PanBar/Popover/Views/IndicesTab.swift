@@ -12,7 +12,7 @@ struct IndicesTab: View {
                     emptyState
                 } else {
                     ForEach(refresher.indexQuotes) { q in
-                        IndexRow(quote: q, scheme: prefs.colorScheme)
+                        IndexRow(quote: q, scheme: prefs.colorScheme, priceFractionDigits: prefs.priceFractionDigits)
                             .contextMenu {
                                 Button(L("action.openInBrowser", comment: "")) {
                                     openInBrowser(q.descriptor)
@@ -53,6 +53,8 @@ struct IndicesTab: View {
 private struct IndexRow: View {
     let quote: IndexQuote
     let scheme: TickerColorScheme
+    /// 指数点位显示小数位数(用户设置)。
+    let priceFractionDigits: Int
 
     var body: some View {
         HStack {
@@ -87,8 +89,8 @@ private struct IndexRow: View {
 
     private func formatPrice(_ price: Decimal) -> String {
         let fmt = NumberFormatter()
-        fmt.minimumFractionDigits = 2
-        fmt.maximumFractionDigits = 2
+        fmt.minimumFractionDigits = priceFractionDigits
+        fmt.maximumFractionDigits = priceFractionDigits
         fmt.usesGroupingSeparator = true
         return fmt.string(from: NSDecimalNumber(decimal: price)) ?? "\(price)"
     }
@@ -96,8 +98,8 @@ private struct IndexRow: View {
     private func signed(_ value: Decimal) -> String {
         let sign = value >= 0 ? "+" : ""
         let fmt = NumberFormatter()
-        fmt.minimumFractionDigits = 2
-        fmt.maximumFractionDigits = 2
+        fmt.minimumFractionDigits = priceFractionDigits
+        fmt.maximumFractionDigits = priceFractionDigits
         return sign + (fmt.string(from: NSDecimalNumber(decimal: value)) ?? "\(value)")
     }
 }

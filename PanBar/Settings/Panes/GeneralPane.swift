@@ -30,6 +30,9 @@ private struct GeneralPaneContent: View {
     @State private var proxyHost: String = ""
     @State private var proxyPortText: String = "7890"
 
+    /// 价格小数位数可选值。
+    private static let priceFractionDigitOptions = [2, 3, 4]
+
     /// 语言:不走 @State,直接读写 storage,避免 .onAppear 触发 .onChange
     private var languageBinding: Binding<LanguageManager.Choice> {
         Binding(
@@ -82,6 +85,12 @@ private struct GeneralPaneContent: View {
                 Picker(L("settings.density", comment: ""), selection: $appearance.density) {
                     ForEach(PopoverDensity.allCases) { d in
                         Text(d.displayName).tag(d)
+                    }
+                }
+
+                Picker(L("settings.priceFractionDigits", comment: ""), selection: $prefs.priceFractionDigits) {
+                    ForEach(Self.priceFractionDigitOptions, id: \.self) { n in
+                        Text(String(format: L("settings.priceFractionDigits.option", comment: ""), n)).tag(n)
                     }
                 }
 
