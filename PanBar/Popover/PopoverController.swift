@@ -1,6 +1,21 @@
 import AppKit
 import SwiftUI
 
+/// NSPopover + NSHostingController 的经典问题:hosting view 会把 popover 的箭头
+/// 锚定区算进 safe area,内容顶部因此多出一大块空白。
+/// 注意:macOS 上只覆盖 safeAreaInsets 不够(NSHostingView 可能走 safeAreaRect
+/// 或内部缓存),所以 safeAreaRect 一并覆盖;SwiftUI 侧再加 .ignoresSafeArea() 兜底。
+private final class NoSafeAreaHostingView<Content: View>: NSHostingView<Content> {
+    override var safeAreaInsets: NSEdgeInsets { NSEdgeInsets() }
+    override var safeAreaRect: NSRect { bounds }
+}
+
+private final class NoSafeAreaHostingController<Content: View>: NSHostingController<Content> {
+    override func loadView() {
+        view = NoSafeAreaHostingView(rootView: rootView)
+    }
+}
+
 @MainActor
 final class PopoverController {
     private let popover: NSPopover
@@ -45,7 +60,7 @@ final class PopoverController {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.contentSize = NSSize(width: 360, height: 520)
-        popover.contentViewController = NSHostingController(rootView:
+        popover.contentViewController = NoSafeAreaHostingController(rootView:
             PopoverRoot()
                 .environmentObject(viewModel)
                 .environmentObject(refresher)
@@ -53,6 +68,7 @@ final class PopoverController {
                 .environmentObject(tickerPrefs)
                 .environment(\.container, container)  // 修复:之前没注入,导致 IndicesTab 拿不到 indexService
                 .frame(width: 360, height: 520)
+                .ignoresSafeArea()
         )
         self.popover = popover
 
@@ -93,7 +109,7 @@ final class PopoverController {
 
     private func applyContentWidth(_ width: CGFloat) {
         popover.contentSize = NSSize(width: width, height: popoverHeight)
-        popover.contentViewController = NSHostingController(rootView:
+        popover.contentViewController = NoSafeAreaHostingController(rootView:
             PopoverRoot()
                 .environmentObject(viewModel)
                 .environmentObject(refresher)
@@ -101,6 +117,7 @@ final class PopoverController {
                 .environmentObject(tickerPrefs)
                 .environment(\.container, container)
                 .frame(width: width, height: popoverHeight)
+                .ignoresSafeArea()
         )
     }
 

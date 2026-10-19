@@ -21,6 +21,10 @@ struct PopoverRoot: View {
             tabs
             Divider()
             content
+                // 关键:让内容区撑满剩余高度。否则空状态(如"还没有持仓")下
+                // VStack 自然高度 < 固定 frame(520),frame 默认居中会把整个
+                // VStack 上下各留一大块对称空白。
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             Divider()
             footer
         }
