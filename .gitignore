@@ -41,6 +41,3 @@ panbar.sqlite-*
 
 # 本地文档:不进入仓库与 git 历史
 /docs/*.md
-
-# 本地文档:不进入仓库与 git 历史
-/docs/*.md
