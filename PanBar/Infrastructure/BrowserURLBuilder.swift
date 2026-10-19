@@ -39,10 +39,13 @@ enum BrowserURLBuilder {
             case "SZ399001": return URL(string: "https://xueqiu.com/S/SZ399001")
             case "SZ399006": return URL(string: "https://xueqiu.com/S/SZ399006")
             case "SH000300": return URL(string: "https://xueqiu.com/S/SH000300")
+            case "SH000688": return URL(string: "https://xueqiu.com/S/SH000688")
             case "HSI":      return URL(string: "https://xueqiu.com/S/HKHSI")
             case "DJIA":     return URL(string: "https://xueqiu.com/S/.DJI")
             case "NDX":      return URL(string: "https://xueqiu.com/S/.IXIC")
             case "SPX":      return URL(string: "https://xueqiu.com/S/.INX")
+            case "N225":     return URL(string: "https://xueqiu.com/S/N225")
+            // 雪球未收录韩国综指页面 → return nil(点击不跳转)
             default: return nil
             }
         case .yahoo:
@@ -52,10 +55,13 @@ enum BrowserURLBuilder {
             case "SZ399001": sym = "399001.SZ"
             case "SZ399006": sym = "399006.SZ"
             case "SH000300": sym = "000300.SS"
+            case "SH000688": sym = "000688.SS"
             case "HSI":      sym = "%5EHSI"
             case "DJIA":     sym = "%5EDJI"
             case "NDX":      sym = "%5ENDX"
             case "SPX":      sym = "%5EGSPC"
+            case "KOSPI":    sym = "%5EKS11"
+            case "N225":     sym = "%5EN225"
             default: return nil
             }
             return URL(string: "https://finance.yahoo.com/quote/\(sym)")
@@ -66,10 +72,13 @@ enum BrowserURLBuilder {
             case "SZ399001": path = "SZSE-399001"
             case "SZ399006": path = "SZSE-399006"
             case "SH000300": path = "SSE-000300"
+            case "SH000688": path = "SSE-000688"
             case "HSI":      path = "HSI-HSI"
             case "DJIA":     path = "DJ-DJI"
             case "NDX":      path = "NASDAQ-NDX"
             case "SPX":      path = "SP-SPX"
+            case "KOSPI":    path = "KRX-KOSPI"
+            case "N225":     path = "TVC-NI225"
             default: return nil
             }
             return URL(string: "https://www.tradingview.com/symbols/\(path)/")

@@ -6,9 +6,10 @@ struct IndexDescriptor: Identifiable, Hashable, Sendable {
     let id: String              // "SH000001"
     let nameZh: String
     let nameEn: String
-    let market: Market
+    /// 股票市场枚举只覆盖 a/hk/us;全球指数(如 KOSPI、N225)没有对应市场,传 nil。
+    let market: Market?
     let emSecid: String         // "1.000001"
-    let currency: Currency
+    let currency: Currency?
 
     var displayName: String {
         Locale.preferredLanguages.first?.hasPrefix("zh") == true ? nameZh : nameEn
@@ -21,10 +22,13 @@ enum IndexCatalog {
         IndexDescriptor(id: "SZ399001", nameZh: "深证成指",   nameEn: "SZSE Component", market: .a,  emSecid: "0.399001", currency: .cny),
         IndexDescriptor(id: "SZ399006", nameZh: "创业板指",   nameEn: "ChiNext",        market: .a,  emSecid: "0.399006", currency: .cny),
         IndexDescriptor(id: "SH000300", nameZh: "沪深300",    nameEn: "CSI 300",        market: .a,  emSecid: "1.000300", currency: .cny),
+        IndexDescriptor(id: "SH000688", nameZh: "科创50",     nameEn: "STAR 50",        market: .a,  emSecid: "1.000688", currency: .cny),
         IndexDescriptor(id: "HSI",      nameZh: "恒生指数",   nameEn: "Hang Seng",      market: .hk, emSecid: "100.HSI",  currency: .hkd),
         IndexDescriptor(id: "DJIA",     nameZh: "道琼斯",     nameEn: "Dow Jones",      market: .us, emSecid: "100.DJIA", currency: .usd),
         IndexDescriptor(id: "NDX",      nameZh: "纳斯达克100", nameEn: "NASDAQ 100",    market: .us, emSecid: "100.NDX",  currency: .usd),
-        IndexDescriptor(id: "SPX",      nameZh: "标普500",    nameEn: "S&P 500",        market: .us, emSecid: "100.SPX",  currency: .usd)
+        IndexDescriptor(id: "SPX",      nameZh: "标普500",    nameEn: "S&P 500",        market: .us, emSecid: "100.SPX",  currency: .usd),
+        IndexDescriptor(id: "KOSPI",    nameZh: "韩国综指",   nameEn: "KOSPI",          market: nil, emSecid: "100.KS11", currency: nil),
+        IndexDescriptor(id: "N225",     nameZh: "日经225",    nameEn: "Nikkei 225",     market: nil, emSecid: "100.N225", currency: nil)
     ]
 }
 

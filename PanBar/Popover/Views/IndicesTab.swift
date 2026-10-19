@@ -61,9 +61,11 @@ private struct IndexRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(quote.descriptor.displayName)
                     .font(.system(size: 13, weight: .semibold))
-                Text(quote.descriptor.market.displayName)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+                if let market = quote.descriptor.market {
+                    Text(market.displayName)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {

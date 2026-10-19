@@ -187,14 +187,17 @@ private struct TickerPaneContent: View {
         prefs.displayMode == .scroll || prefs.displayMode == .scrollNoCode || prefs.displayMode == .carousel
     }
 
-    private func marketBadge(_ m: Market) -> some View {
-        Text(m.displayName)
-            .font(.system(size: 10))
-            .foregroundColor(.secondary)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(Color.secondary.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 3))
+    @ViewBuilder
+    private func marketBadge(_ m: Market?) -> some View {
+        if let m = m {
+            Text(m.displayName)
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(Color.secondary.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 3))
+        }
     }
 
     private func reload() {
