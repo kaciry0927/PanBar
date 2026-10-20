@@ -974,6 +974,30 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "指数加载失败" } }
       }
     },
+    "indices.hide" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hide index" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "隐藏指数" } }
+      }
+    },
+    "indices.hiddenCount" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld hidden" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld 个指数已隐藏" } }
+      }
+    },
+    "indices.hidden.show" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示" } }
+      }
+    },
+    "indices.hidden.restoreAll" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore all" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部恢复" } }
+      }
+    },
     "action.retry" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Retry" } },

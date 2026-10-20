@@ -5,17 +5,34 @@ struct IndicesTab: View {
     @EnvironmentObject var prefs: TickerPreferences
     @EnvironmentObject var vm: PopoverViewModel   // 拿 settingsRepo 读浏览器模板
 
+    /// 已隐藏指数管理区是否展开。
+    @State private var showHiddenSection = false
+
+    /// 大盘 Tab 显示的指数 = 全量 - 用户隐藏的。
+    private var visibleQuotes: [IndexQuote] {
+        refresher.indexQuotes.filter { !prefs.popoverHiddenIndexIDs.contains($0.id) }
+    }
+    private var hiddenQuotes: [IndexQuote] {
+        refresher.indexQuotes.filter { prefs.popoverHiddenIndexIDs.contains($0.id) }
+    }
+
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 if refresher.indexQuotes.isEmpty {
                     emptyState
                 } else {
-                    ForEach(refresher.indexQuotes) { q in
+                    ForEach(visibleQuotes) { q in
                         IndexRow(quote: q, scheme: prefs.colorScheme, priceFractionDigits: prefs.priceFractionDigits)
                             .contextMenu {
                                 Button(L("action.openInBrowser", comment: "")) {
                                     openInBrowser(q.descriptor)
+                                }
+                                Divider()
+                                Button(L("indices.hide", comment: "")) {
+                                    withAnimation {
+                                        _ = prefs.popoverHiddenIndexIDs.insert(q.id)
+                                    }
                                 }
                             }
                             .onTapGesture(count: 2) {
@@ -23,10 +40,82 @@ struct IndicesTab: View {
                             }
                         Divider().opacity(0.4)
                     }
+                    if !hiddenQuotes.isEmpty {
+                        hiddenSection
+                    }
                 }
             }
         }
         .frame(maxHeight: 320)
+    }
+
+    /// 底部"已隐藏指数"折叠区:可逐个恢复,也可一键全部恢复。
+    private var hiddenSection: some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation { showHiddenSection.toggle() }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "eye.slash")
+                        .font(.system(size: 10))
+                    Text(String(format: L("indices.hiddenCount", comment: ""), hiddenQuotes.count))
+                        .font(.system(size: 11))
+                    Spacer()
+                    Image(systemName: showHiddenSection ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 9))
+                }
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if showHiddenSection {
+                ForEach(hiddenQuotes) { q in
+                    HStack {
+                        Text(q.descriptor.displayName)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                        if let market = q.descriptor.market {
+                            Text(market.displayName)
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                                .opacity(0.7)
+                        }
+                        Spacer()
+                        Button {
+                            withAnimation {
+                                _ = prefs.popoverHiddenIndexIDs.remove(q.id)
+                            }
+                        } label: {
+                            Label(L("indices.hidden.show", comment: ""), systemImage: "eye")
+                                .labelStyle(.titleAndIcon)
+                                .font(.system(size: 11))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.accentColor)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    Divider().opacity(0.25)
+                }
+                Button {
+                    withAnimation {
+                        prefs.popoverHiddenIndexIDs = []
+                        showHiddenSection = false
+                    }
+                } label: {
+                    Text(L("indices.hidden.restoreAll", comment: ""))
+                        .font(.system(size: 11))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.accentColor)
+            }
+        }
     }
 
     private func openInBrowser(_ index: IndexDescriptor) {
