@@ -86,6 +86,7 @@ struct SettingsRepository {
         static let popoverShowTotalAssets = "popover_show_total_assets" // 面板顶部"总资产"卡片
         static let priceFractionDigits = "price_fraction_digits"
         static let holdingPopoverMetric = "holding_popover_metric"
+        static let popoverTabOrder = "popover_tab_order"   // 面板标签顺序(逗号分隔的 tab rawValue)
         static let proxyMode = "proxy_mode"            // off / system / manual
         static let proxyHost = "proxy_host"
         static let proxyPort = "proxy_port"

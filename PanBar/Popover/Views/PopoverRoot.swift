@@ -1,10 +1,14 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct PopoverRoot: View {
     @EnvironmentObject var vm: PopoverViewModel
     @EnvironmentObject var refresher: QuoteRefresher
     @EnvironmentObject var prefs: TickerPreferences
     @Environment(\.container) private var container
+
+    /// 正在拖拽的标签(拖拽排序用)
+    @State private var draggingTab: PopoverViewModel.Tab?
 
     /// 每 30 秒强制重算市场状态(开市/午休/休市切换);用 timer trigger 让 @State 变化触发重渲染
     @State private var statusTick: Date = Date()
@@ -147,7 +151,7 @@ struct PopoverRoot: View {
 
     private var tabs: some View {
         HStack(spacing: 4) {
-            ForEach(PopoverViewModel.Tab.allCases) { tab in
+            ForEach(vm.tabOrder) { tab in
                 Button(action: { vm.currentTab = tab }) {
                     Text(tab.title)
                         .font(.system(size: 11, weight: vm.currentTab == tab ? .semibold : .regular))
@@ -160,6 +164,16 @@ struct PopoverRoot: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .opacity(draggingTab == tab ? 0.4 : 1)
+                .onDrag {
+                    draggingTab = tab
+                    return NSItemProvider(object: tab.rawValue as NSString)
+                }
+                .onDrop(of: [UTType.text], delegate: TabDropDelegate(
+                    item: tab,
+                    dragging: $draggingTab,
+                    vm: vm
+                ))
             }
             Spacer()
         }
@@ -287,4 +301,34 @@ struct PopoverRoot: View {
     private func openSettings() {
         SettingsWindowController.shared.show()
     }
+}
+
+/// 标签拖拽排序的落点代理:拖到某个标签上时实时把被拖标签移到该位置,
+/// 松手(performDrop)时才写库,避免拖拽过程中反复落盘。
+private struct TabDropDelegate: DropDelegate {
+    let item: PopoverViewModel.Tab
+    @Binding var dragging: PopoverViewModel.Tab?
+    let vm: PopoverViewModel
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging, dragging != item else { return }
+        var order = vm.tabOrder
+        guard let from = order.firstIndex(of: dragging),
+              let to = order.firstIndex(of: item) else { return }
+        order.move(fromOffsets: IndexSet(integer: from),
+                   toOffset: to > from ? to + 1 : to)
+        vm.reorderTabs(order)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        vm.persistTabOrder()
+        dragging = nil
+        return true
+    }
+
+    func dropExited(info: DropInfo) {}
 }
