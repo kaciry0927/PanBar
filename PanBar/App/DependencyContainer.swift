@@ -20,6 +20,8 @@ final class DependencyContainer {
     let fx: FXService
     let portfolioService: PortfolioService
     let clock: MarketClock
+    let intradayService: IntradayService
+    let intradayStore: IntradayStore
     let alertEngine: AlertEngine
     let refresher: QuoteRefresher
     let networkMonitor: NetworkMonitor
@@ -73,6 +75,8 @@ final class DependencyContainer {
         self.fx = fx
 
         self.clock = MarketClock(settingsRepo: settingsRepo)
+        self.intradayService = IntradayService()
+        self.intradayStore = IntradayStore(service: intradayService, clock: clock)
         self.portfolioService = PortfolioService(
             holdingsRepo: holdingsRepo,
             watchlistRepo: watchlistRepo,

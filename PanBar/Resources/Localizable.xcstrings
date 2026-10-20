@@ -998,6 +998,18 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部恢复" } }
       }
     },
+    "intraday.failed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Failed to load. Click to retry" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "分时加载失败,点击重试" } }
+      }
+    },
+    "intraday.loading" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading intraday chart…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "加载分时中…" } }
+      }
+    },
     "action.retry" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Retry" } },

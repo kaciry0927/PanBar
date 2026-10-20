@@ -86,10 +86,14 @@ final class PopoverController {
     private func handlePopoverClosed() {
         stopOutsideClickMonitor()
         refresher.setPopoverOpen(false)
+        // 分时展开行:停止轮询并清状态(下次打开重新懒加载)
+        container.intradayStore.popoverDidClose()
         onClose?()
     }
 
     func show(relativeTo view: NSView, anchorWidth: CGFloat? = nil) {
+        // 在窗口显示前清理上次的分时展开状态(此时改内容尺寸是安全的)
+        container.intradayStore.popoverWillOpen()
         refresher.setPopoverOpen(true)
         refresher.refreshNow()
         popover.show(relativeTo: positioningRect(relativeTo: view, anchorWidth: anchorWidth), of: view, preferredEdge: .minY)
@@ -106,6 +110,7 @@ final class PopoverController {
             .environmentObject(refresher)
             .environmentObject(appearancePrefs)
             .environmentObject(tickerPrefs)
+            .environmentObject(container.intradayStore)
             .environment(\.container, container)
             .frame(minWidth: minimumPopoverWidth, maxWidth: maximumPopoverWidth)
             .ignoresSafeArea()

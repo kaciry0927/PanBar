@@ -4,6 +4,7 @@ struct IndicesTab: View {
     @EnvironmentObject var refresher: QuoteRefresher
     @EnvironmentObject var prefs: TickerPreferences
     @EnvironmentObject var vm: PopoverViewModel   // 拿 settingsRepo 读浏览器模板
+    @EnvironmentObject var intraday: IntradayStore
 
     /// 已隐藏指数管理区是否展开。
     @State private var showHiddenSection = false
@@ -23,21 +24,28 @@ struct IndicesTab: View {
                     emptyState
                 } else {
                     ForEach(visibleQuotes) { q in
-                        IndexRow(quote: q, scheme: prefs.colorScheme, priceFractionDigits: prefs.priceFractionDigits)
-                            .contextMenu {
-                                Button(L("action.openInBrowser", comment: "")) {
-                                    openInBrowser(q.descriptor)
-                                }
-                                Divider()
-                                Button(L("indices.hide", comment: "")) {
-                                    withAnimation {
-                                        _ = prefs.popoverHiddenIndexIDs.insert(q.id)
-                                    }
-                                }
-                            }
-                            .onTapGesture(count: 2) {
+                        // 整行用 Button(onTapGesture 会与 contextMenu 手势冲突)
+                        Button {
+                            toggleIntraday(.index(q.descriptor))
+                        } label: {
+                            IndexRow(quote: q, scheme: prefs.colorScheme, priceFractionDigits: prefs.priceFractionDigits, isExpanded: intraday.expandedKey == q.id)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(L("action.openInBrowser", comment: "")) {
                                 openInBrowser(q.descriptor)
                             }
+                            Divider()
+                            Button(L("indices.hide", comment: "")) {
+                                withAnimation {
+                                    _ = prefs.popoverHiddenIndexIDs.insert(q.id)
+                                }
+                            }
+                        }
+                        if intraday.expandedKey == q.id {
+                            IntradaySectionView(target: .index(q.descriptor), key: q.id, scheme: prefs.colorScheme)
+                        }
                         Divider().opacity(0.4)
                     }
                     if !hiddenQuotes.isEmpty {
@@ -46,6 +54,7 @@ struct IndicesTab: View {
                 }
             }
         }
+        .thinScrollbar()
         .frame(maxHeight: 320)
     }
 
@@ -125,6 +134,13 @@ struct IndicesTab: View {
         }
     }
 
+    /// 单击行:展开/收起当日分时(手风琴,状态由 IntradayStore 全局单持)。
+    private func toggleIntraday(_ target: IntradayTarget) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            intraday.toggle(target: target)
+        }
+    }
+
     private var emptyState: some View {
         VStack(spacing: 8) {
             Image(systemName: "chart.line.uptrend.xyaxis")
@@ -144,6 +160,8 @@ private struct IndexRow: View {
     let scheme: TickerColorScheme
     /// 指数点位显示小数位数(用户设置)。
     let priceFractionDigits: Int
+    /// 该行分时区是否展开(行尾 chevron 提示)。
+    let isExpanded: Bool
 
     var body: some View {
         HStack {
@@ -173,9 +191,17 @@ private struct IndexRow: View {
                         .monospacedDigit()
                 }
             }
+            expandChevron
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
+    }
+
+    private var expandChevron: some View {
+        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundColor(.secondary)
+            .frame(width: 10)
     }
 
     private func formatPrice(_ price: Decimal) -> String {

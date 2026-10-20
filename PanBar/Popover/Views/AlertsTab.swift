@@ -20,6 +20,7 @@ struct AlertsTab: View {
                 }
             }
         }
+        .thinScrollbar()
         .frame(maxHeight: 320)
         .onAppear { observe() }
         .onDisappear { observationTask?.cancel() }

@@ -6,6 +6,7 @@ struct HoldingsTab: View {
     @EnvironmentObject var refresher: QuoteRefresher
     @EnvironmentObject var appearance: AppearancePreferences
     @EnvironmentObject var prefs: TickerPreferences
+    @EnvironmentObject var intraday: IntradayStore
     /// 当前 hover 的行 id;有值时该行尾露出铅笔编辑按钮。
     @State private var hoveredID: UUID?
 
@@ -50,22 +51,29 @@ struct HoldingsTab: View {
                         emptyState
                     } else {
                         ForEach(vm.holdings) { holding in
-                            // 编辑按钮以 hover 时是否显示的形式传给 HoldingRow,在 name 后面 inline 出现,
-                            // 不再用 ZStack 覆盖右侧(挡住涨跌幅 pill)。
-                            HoldingRow(
-                                holding: holding,
-                                quote: refresher.quotes[holding.symbol],
-                                position: positionsByID[holding.id],
-                                density: appearance.density,
-                                scheme: prefs.colorScheme,
-                                baseCurrency: refresher.snapshot.baseCurrency,
-                                metricsLayout: metricsLayout,
-                                metricMode: holdingPopoverMetric,
-                                priceFractionDigits: prefs.priceFractionDigits,
-                                showEditButton: hoveredID == holding.id,
-                                onEdit: { openEdit(holding) }
-                            )
-                            .contentShape(Rectangle())
+                            let key = holding.symbol.storageKey
+                            // 整行用 Button(onTapGesture 会与 contextMenu 手势冲突),
+                            // 编辑按钮以 hover 时是否显示的形式传给 HoldingRow。
+                            Button {
+                                toggleIntraday(.stock(holding.symbol))
+                            } label: {
+                                HoldingRow(
+                                    holding: holding,
+                                    quote: refresher.quotes[holding.symbol],
+                                    position: positionsByID[holding.id],
+                                    density: appearance.density,
+                                    scheme: prefs.colorScheme,
+                                    baseCurrency: refresher.snapshot.baseCurrency,
+                                    metricsLayout: metricsLayout,
+                                    metricMode: holdingPopoverMetric,
+                                    priceFractionDigits: prefs.priceFractionDigits,
+                                    showEditButton: hoveredID == holding.id,
+                                    isExpanded: intraday.expandedKey == key,
+                                    onEdit: { openEdit(holding) }
+                                )
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                             .onHover { hovering in
                                 withAnimation(.easeInOut(duration: 0.12)) {
                                     hoveredID = hovering ? holding.id : (hoveredID == holding.id ? nil : hoveredID)
@@ -81,14 +89,15 @@ struct HoldingsTab: View {
                                     vm.deleteHolding(holding.id)
                                 }
                             }
-                            .onTapGesture(count: 2) {
-                                openInBrowser(holding.symbol)
+                            if intraday.expandedKey == key {
+                                IntradaySectionView(target: .stock(holding.symbol), key: key, scheme: prefs.colorScheme)
                             }
                             Divider().opacity(0.4)
                         }
                     }
                 }
             }
+            .thinScrollbar()
             .frame(maxHeight: 290)
 
             if !vm.holdings.isEmpty {
@@ -99,6 +108,15 @@ struct HoldingsTab: View {
 
     private func openEdit(_ holding: Holding) {
         SettingsWindowController.shared.show(initialAction: .editHolding(holding.id))
+    }
+
+    /// 单击行:展开/收起当日分时(手风琴,状态由 IntradayStore 全局单持)。
+    /// 不与双击手势并存——双击会让单击等 ~250ms 判定,展开手感卡顿;
+    /// 浏览器入口保留在右键菜单。
+    private func toggleIntraday(_ target: IntradayTarget) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            intraday.toggle(target: target)
+        }
     }
 
     private var quickAddButton: some View {
@@ -238,6 +256,8 @@ private struct HoldingRow: View {
     let priceFractionDigits: Int
     /// hover 时显示 inline 编辑铅笔(放在 name 后面,不挡涨跌)
     let showEditButton: Bool
+    /// 该行分时区是否展开(行尾 chevron 提示)。
+    let isExpanded: Bool
     let onEdit: () -> Void
 
     /// 只要有 quote(无论 position 有没有),立即就能算出原币种的盈亏。
@@ -289,9 +309,18 @@ private struct HoldingRow: View {
 
             metricsGrid
                 .layoutPriority(3)
+
+            expandChevron
         }
         .padding(.horizontal, density.rowHorizontalPadding)
         .padding(.vertical, density.rowVerticalPadding)
+    }
+
+    private var expandChevron: some View {
+        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundColor(.secondary)
+            .frame(width: 10)
     }
 
     private var metricsGrid: some View {
