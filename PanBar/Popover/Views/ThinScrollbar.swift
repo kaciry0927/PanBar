@@ -143,6 +143,11 @@ private struct ScrollViewProbe: NSViewRepresentable {
         }
 
         private func hideNativeScrollers(of sv: NSScrollView) {
+            // legacy 滚动条(系统「始终显示滚动条」,外接鼠标常见)会占据内容右侧宽度,
+            // 展开分时图内容变高触发 scroller 后,整行(含行尾展开 chevron)被往左挤。
+            // 强制 overlay 样式:即使 scroller 短暂显示也浮在内容上、不占宽;
+            // hasVerticalScroller = false 再彻底隐藏。双保险,消除布局竞争抖动。
+            sv.scrollerStyle = .overlay
             sv.hasVerticalScroller = false
             sv.hasHorizontalScroller = false
             sv.verticalScroller?.isHidden = true
