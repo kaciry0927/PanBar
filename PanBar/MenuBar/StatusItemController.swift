@@ -200,6 +200,9 @@ final class StatusItemController {
             guard let self, let window = self.statusItem.button?.window else { return }
             let frame = window.frame
             let thickness = NSStatusBar.system.thickness
+            let tw = self.tickerView.totalWidth
+            let len = self.statusItem.length
+            Log.ui.info("statusItem诊断: totalWidth=\(tw) statusItem.length=\(len) windowFrame=\(NSStringFromRect(frame)) thickness=\(thickness)")
             let placed = frame.height >= thickness - 1 && frame.minY >= 0
             if !placed {
                 Log.ui.error("NSStatusItem 未被系统放置:frame=\(NSStringFromRect(frame)) thickness=\(thickness) bundleID=\(Bundle.main.bundleIdentifier ?? "?") —— 该 bundle ID 可能被状态栏子系统标记为失效(曾从易失路径运行),图标将不可见")
@@ -228,7 +231,11 @@ final class StatusItemController {
 
     private func lockPopoverLength() {
         guard lockedPopoverLength == nil else { return }
-        lockedPopoverLength = max(40, statusItem.length, tickerView.totalWidth)
+        // 直接锁定当前内容宽度(与正常渲染 totalWidth 完全一致),不做 max(40, ...) 抬升。
+        // 否则空内容时(totalWidth = emptyHitTargetWidth = 24)打开 popover 会把
+        // statusItem.length 硬拉到 40、关闭又缩回 24,图标宽度反复跳变,
+        // 视觉上就是「点一下图标,图标左右移动」。
+        lockedPopoverLength = tickerView.totalWidth
         statusItem.length = lockedPopoverLength ?? tickerView.totalWidth
     }
 
