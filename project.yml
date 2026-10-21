@@ -63,8 +63,9 @@ targets:
           # bundle ID 用 dev2 而非 debug:旧 ID app.panbar.PanBar.debug 在这台机器上
           # 曾被状态栏子系统标记为失效(历史上从 AppTranslocation/临时路径运行过),
           # 导致 NSStatusItem 永远不被放置(窗口停在内容尺寸 40x22、y 为负,菜单栏
-          # 无图标)。这是「具体 ID 的历史状态污染」,与 .debug 后缀无关(实测
-          # app.panbar.PanBar.debug2 也正常)。换全新 ID 即恢复;StatusItemController
+          # 无图标)。这是「具体 ID 的持久化历史状态」:与 .debug 后缀无关(实测
+          # app.panbar.PanBar.debug2 / foo.debug 都正常),重启机器也清不掉(不在内存,
+          # 藏在系统级存储里)。换全新 ID 是唯一安全可控的修复;StatusItemController
           # 里已加自检,再遇此问题会写 error 日志。见 .workbuddy/memory/2026-10-21。
           PRODUCT_BUNDLE_IDENTIFIER: app.panbar.PanBar.dev2
           PRODUCT_NAME: PanBar-Dev
