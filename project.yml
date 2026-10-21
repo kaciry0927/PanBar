@@ -59,8 +59,14 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
       configs:
         Debug:
-          # Debug 用独立 bundle ID + 独立 .app 文件名,可以和正式版并排装互不影响
-          PRODUCT_BUNDLE_IDENTIFIER: app.panbar.PanBar.debug
+          # Debug 用独立 bundle ID + 独立 .app 文件名,可以和正式版并排装互不影响。
+          # bundle ID 用 dev2 而非 debug:旧 ID app.panbar.PanBar.debug 在这台机器上
+          # 曾被状态栏子系统标记为失效(历史上从 AppTranslocation/临时路径运行过),
+          # 导致 NSStatusItem 永远不被放置(窗口停在内容尺寸 40x22、y 为负,菜单栏
+          # 无图标)。这是「具体 ID 的历史状态污染」,与 .debug 后缀无关(实测
+          # app.panbar.PanBar.debug2 也正常)。换全新 ID 即恢复;StatusItemController
+          # 里已加自检,再遇此问题会写 error 日志。见 .workbuddy/memory/2026-10-21。
+          PRODUCT_BUNDLE_IDENTIFIER: app.panbar.PanBar.dev2
           PRODUCT_NAME: PanBar-Dev
           BUNDLE_DISPLAY_NAME: PanBar Dev
           # Debug 走无沙盒 entitlements,Sparkle 不需要 Hardened Runtime 也能加载 XPC

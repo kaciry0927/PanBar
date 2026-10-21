@@ -35,9 +35,12 @@ final class StatusItemController {
         self.settingsRepo = settingsRepo
         self.renderer = TickerRenderer(scheme: prefs.colorScheme)
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        // autosaveName 让 macOS 持久化用户 ⌘-拖到的位置,下次启动不重置。
-        // 这是「被刘海挡掉」时唯一能做的:用户挪到 notch 左边后位置就保住了。
-        self.statusItem.autosaveName = "app.panbar.PanBar.statusItem"
+        // 不设 autosaveName。原因:
+        //  1) autosaveName 持久化的「⌘-拖动位置」在换显示器/改分辨率后会失效,
+        //     可能把图标摆到屏幕外;
+        //  2) 菜单栏无图标的根因经排查是旧 bundle ID `app.panbar.PanBar.debug`
+        //     被状态栏服务器污染(见 project.yml 注释),与 autosaveName 无关;
+        //     但为稳妥起见,图标位置交给系统默认,每次启动自动排到合适位置。
         self.currentMode = prefs.displayMode
         self.tickerView = Self.makeView(for: prefs.displayMode, scheme: prefs.colorScheme)
         self.contextMenu = NSMenu()
@@ -60,6 +63,7 @@ final class StatusItemController {
         }
         applyPrefs()
         bind()
+        diagnoseStatusItemPlacement()
     }
 
     private func applyPrefs() {
@@ -141,7 +145,9 @@ final class StatusItemController {
 
     private func configure() {
         guard let button = statusItem.button else { return }
-        button.frame = NSRect(x: 0, y: 0, width: tickerView.totalWidth, height: 22)
+        // 不手动设 button.frame:强设 22pt 高会让状态栏窗口变 22pt 并整体下移 11pt,
+        // 被时钟/控制中心盖住,表现为「进程在跑但菜单栏没图标」。
+        // 尺寸完全交给 AppKit 托管(statusItem.length 控制宽度)。
         button.target = self
         button.action = #selector(onClick(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -180,6 +186,25 @@ final class StatusItemController {
 
     deinit {
         mouseMovedMonitors.forEach { NSEvent.removeMonitor($0) }
+    }
+
+    /// 启动后延迟检查 status item 是否被系统正确放置到菜单栏。
+    ///
+    /// 背景:macOS 状态栏子系统会按 bundle ID 记录 status item 的历史状态;若某个
+    /// bundle ID 曾从易失路径(AppTranslocation / DMG / 临时目录)运行,系统可能拒绝
+    /// 为它的 NSStatusItem 分配菜单栏槽位,表现为「进程在跑但菜单栏没图标」——窗口
+    /// 停在内容尺寸(如 40x22)且 y 为负(屏幕外)。正常放置后窗口会被拉高到菜单栏
+    /// 厚度(本机 33pt)。这里检测到异常就写 error 日志,避免图标无声无息地消失。
+    private func diagnoseStatusItemPlacement() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self, let window = self.statusItem.button?.window else { return }
+            let frame = window.frame
+            let thickness = NSStatusBar.system.thickness
+            let placed = frame.height >= thickness - 1 && frame.minY >= 0
+            if !placed {
+                Log.ui.error("NSStatusItem 未被系统放置:frame=\(NSStringFromRect(frame)) thickness=\(thickness) bundleID=\(Bundle.main.bundleIdentifier ?? "?") —— 该 bundle ID 可能被状态栏子系统标记为失效(曾从易失路径运行),图标将不可见")
+            }
+        }
     }
 
     /// 把当前 tickerView 接到 button:订阅内容变化 → 渲染 NSImage → 写回 button.image。

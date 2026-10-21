@@ -19,7 +19,7 @@ DERIVED ?= build/dd
 APP_NAME := PanBar
 # Debug 用独立 bundle ID + 独立文件名,可以和正式版并排装互不影响
 DEV_APP_NAME := PanBar-Dev
-DEV_BUNDLE_ID := app.panbar.PanBar.debug
+DEV_BUNDLE_ID := app.panbar.PanBar.dev2
 DEV_APP_PATH := $(DERIVED)/Build/Products/Debug/$(DEV_APP_NAME).app
 VERSION ?= 0.1.0
 BUILD_DIR := build/Release
