@@ -22,6 +22,7 @@ final class OnboardingWindowController {
 
     func show(container: DependencyContainer, onComplete: @escaping () -> Void) {
         if let window = window {
+            window.ensureVisibleOnScreen()
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -36,7 +37,7 @@ final class OnboardingWindowController {
         w.title = L("onboarding.title", comment: "")
         w.styleMask = [.titled, .closable]
         w.setContentSize(NSSize(width: 520, height: 400))
-        w.center()
+        w.forceCenterOnMainScreen()
         w.isReleasedWhenClosed = false
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

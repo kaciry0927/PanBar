@@ -71,6 +71,7 @@ final class SettingsWindowController {
 
     private func showWindow() {
         if let window = window {
+            window.ensureVisibleOnScreen() // 外接屏拔掉后窗口可能悬在已不存在的屏幕坐标上
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -88,7 +89,7 @@ final class SettingsWindowController {
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         w.setContentSize(NSSize(width: 720, height: 640))
         w.minSize = NSSize(width: 600, height: 480)
-        w.center()
+        w.forceCenterOnMainScreen()
         w.isReleasedWhenClosed = false
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
