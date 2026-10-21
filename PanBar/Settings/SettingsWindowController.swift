@@ -6,7 +6,10 @@ import SwiftUI
 /// 只算一次,旧 bug 就是这个。
 @MainActor
 final class SettingsNavigation: ObservableObject {
-    @Published var selectedPane: SettingsRootView.Pane = .general
+    /// 必须是 Optional:`List(selection:)` 需要能表示「未选中」状态(nil)。
+    /// 之前用非可选 `Pane`,首屏渲染 / 窗口激活 / sheet 关闭时 List 内部会把选中态
+    /// 短暂清成 nil,但绑定写不回 nil → List 内部状态错乱,侧边栏从此点不动(锁死)。
+    @Published var selectedPane: SettingsRootView.Pane? = .general
     @Published var pendingAction: SettingsWindowController.PendingAction?
 }
 
@@ -159,7 +162,7 @@ struct SettingsRootView: View {
             }
             .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 200)
         } detail: {
-            switch navigation.selectedPane {
+            switch navigation.selectedPane ?? .general {
             case .general:     GeneralPane()
             case .ticker:      TickerPane()
             case .portfolio:   PortfolioPane()
