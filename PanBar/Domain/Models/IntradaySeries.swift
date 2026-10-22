@@ -32,23 +32,27 @@ struct IntradaySeries: Sendable, Equatable {
     let fetchedAt: Date
 }
 
-/// 分时请求目标:股票(自选/持仓)或指数(大盘)。
+/// 分时请求目标:股票(自选/持仓)、指数(大盘)或行业板块。
 enum IntradayTarget: Sendable, Hashable {
     case stock(SymbolID)
     case index(IndexDescriptor)
+    case sector(SectorBoard)
 
     var cacheKey: String {
         switch self {
         case .stock(let s): return s.storageKey
         case .index(let d): return d.id
+        case .sector(let b): return b.code
         }
     }
 
     /// 指数可能是全球指数(market 为 nil),此时不做休市跳过优化。
+    /// 板块恒为 A 股行业,market = .a。
     var market: Market? {
         switch self {
         case .stock(let s): return s.market
         case .index(let d): return d.market
+        case .sector:       return .a
         }
     }
 }

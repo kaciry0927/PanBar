@@ -4,13 +4,14 @@ import Combine
 @MainActor
 final class PopoverViewModel: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
-        case holdings, watchlist, indices, alerts
+        case holdings, watchlist, indices, sectors, alerts
         var id: String { rawValue }
         var title: String {
             switch self {
             case .holdings:  return L("tab.holdings", comment: "")
             case .watchlist: return L("tab.watchlist", comment: "")
             case .indices:   return L("tab.indices", comment: "")
+            case .sectors:   return L("tab.sectors", comment: "")
             case .alerts:    return L("tab.alerts", comment: "")
             }
         }
@@ -66,6 +67,41 @@ final class PopoverViewModel: ObservableObject {
     func persistTabOrder() {
         let raw = tabOrder.map(\.rawValue).joined(separator: ",")
         try? settingsRepo.set(SettingsRepository.Keys.popoverTabOrder, raw)
+    }
+
+    // MARK: 标签拖拽状态
+
+    /// 正在拖拽的标签(仅用于把源标签压暗到 0.4 透明度)。
+    /// 状态放 VM 而非视图 @State:拖拽会话被取消时(松手在空白处 / 按 Esc)
+    /// SwiftUI 不会回调 performDrop,只有最后经过的目标收到 dropExited ——
+    /// 必须在那里兜底清理,否则被拖过的标签会永远停在半透明上。
+    @Published var draggingTab: Tab?
+
+    private var dragCleanupWork: DispatchWorkItem?
+
+    /// dropEntered / onDrag:记录拖拽源,并取消待执行的兜底清理
+    /// (exited → entered 之间只有几毫秒,不能让 exited 的延迟清理误伤正常换位)。
+    func dragDidEnter(_ tab: Tab?) {
+        dragCleanupWork?.cancel()
+        dragCleanupWork = nil
+        draggingTab = tab
+    }
+
+    /// dropExited:延迟一拍再清理。路过相邻标签时,下一个 dropEntered 会
+    /// 取消清理;会话真被取消(不再有任何回调)时,这里负责把透明度复位。
+    func dragDidExit() {
+        dragCleanupWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.draggingTab = nil }
+        dragCleanupWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+    }
+
+    /// performDrop:落盘顺序并结束拖拽态。
+    func dragDidDrop() {
+        dragCleanupWork?.cancel()
+        dragCleanupWork = nil
+        draggingTab = nil
+        persistTabOrder()
     }
 
     func reload() {

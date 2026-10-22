@@ -25,6 +25,7 @@ PanBar squeezes A-share / HK / US quotes into a tiny scrolling strip in the macO
 - **Scrolling menu bar ticker** — pick which tickers to scroll, plus three summary metrics (today's P&L / total assets / lifetime P&L)
 - **Multi-market** — A-share / HK / US in one place, **auto-aggregated by base currency (¥ / $ / HK$)**
 - **Market indices** — 11 presets (SSE / SZSE / ChiNext / CSI300 / STAR 50 / HSI / Dow Jones / NASDAQ 100 / S&P 500 / KOSPI / Nikkei 225), optionally shown in the ticker
+- **Industry sectors** — SW level-1 industry top gainers / top losers (top 5 each); tap a sector to expand its intraday minute chart
 - **Price alerts** — multi-condition (primary + secondary, AND/OR), daily trigger cap, trading-hours-only, weekdays-only
 - **Configurable data sources** — Tencent / EastMoney / Yahoo / Finnhub, **per-market priority**
 - **Stock search** — Chinese / pinyin / symbol, backed by Tencent smartbox

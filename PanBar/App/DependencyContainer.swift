@@ -16,6 +16,7 @@ final class DependencyContainer {
     let finnhub: FinnhubProvider
     let provider: QuoteProvider
     let indexService: IndexService
+    let sectorService: SectorService
     let symbolSearch: SymbolSearch
     let fx: FXService
     let portfolioService: PortfolioService
@@ -68,6 +69,7 @@ final class DependencyContainer {
         self.orchestrator = orchestrator
         self.provider = orchestrator
         self.indexService = IndexService()
+        self.sectorService = SectorService()
         self.symbolSearch = SymbolSearch()
 
         let fxProvider = EastMoneyFXProvider()
@@ -88,6 +90,7 @@ final class DependencyContainer {
         self.refresher = QuoteRefresher(
             service: portfolioService,
             indexService: indexService,
+            sectorService: sectorService,
             clock: clock,
             quoteCacheRepo: quoteCacheRepo,
             fxCacheRepo: fxCacheRepo,

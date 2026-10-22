@@ -46,6 +46,13 @@ final class IntradayStore: ObservableObject {
         loadingKeys.remove(key)
     }
 
+    /// 收起当前展开的分时行(切换 Tab 时复位默认态用)。
+    func collapseExpanded() {
+        if let key = expandedKey {
+            collapse(key: key)
+        }
+    }
+
     private func startPolling(target: IntradayTarget, key: String) {
         pollTask?.cancel()
         pollTask = Task { [weak self] in

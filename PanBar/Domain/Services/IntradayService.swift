@@ -40,6 +40,10 @@ actor IntradayService {
             // 指数只有东财一条路(emSecid 覆盖含全球指数的全部 11 个)
             return try await eastWithRetry(secid: d.emSecid, cacheKey: d.id, market: d.market)
 
+        case .sector(let b):
+            // 行业板块:东财 trends2 支持板块 secid(90.BKxxxx),只有东财一条路
+            return try await eastWithRetry(secid: "90.\(b.code)", cacheKey: b.code, market: .a)
+
         case .stock(let s):
             let key = target.cacheKey
             // 冷却期 ≠ 屏蔽东财,只是把 Yahoo 提到前面:东财偶发 412/限流是瞬态的,

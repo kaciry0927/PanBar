@@ -7,9 +7,6 @@ struct PopoverRoot: View {
     @EnvironmentObject var prefs: TickerPreferences
     @Environment(\.container) private var container
 
-    /// 正在拖拽的标签(拖拽排序用)
-    @State private var draggingTab: PopoverViewModel.Tab?
-
     /// 每 30 秒强制重算市场状态(开市/午休/休市切换);用 timer trigger 让 @State 变化触发重渲染
     @State private var statusTick: Date = Date()
     private let statusTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
@@ -164,14 +161,13 @@ struct PopoverRoot: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .opacity(draggingTab == tab ? 0.4 : 1)
+                .opacity(vm.draggingTab == tab ? 0.4 : 1)
                 .onDrag {
-                    draggingTab = tab
+                    vm.dragDidEnter(tab)
                     return NSItemProvider(object: tab.rawValue as NSString)
                 }
                 .onDrop(of: [UTType.text], delegate: TabDropDelegate(
                     item: tab,
-                    dragging: $draggingTab,
                     vm: vm
                 ))
             }
@@ -187,6 +183,7 @@ struct PopoverRoot: View {
         case .holdings:  HoldingsTab()
         case .watchlist: WatchlistTab()
         case .indices:   IndicesTab()
+        case .sectors:   SectorsTab()
         case .alerts:    AlertsTab()
         }
     }
@@ -307,11 +304,10 @@ struct PopoverRoot: View {
 /// 松手(performDrop)时才写库,避免拖拽过程中反复落盘。
 private struct TabDropDelegate: DropDelegate {
     let item: PopoverViewModel.Tab
-    @Binding var dragging: PopoverViewModel.Tab?
     let vm: PopoverViewModel
 
     func dropEntered(info: DropInfo) {
-        guard let dragging, dragging != item else { return }
+        guard let dragging = vm.draggingTab, dragging != item else { return }
         var order = vm.tabOrder
         guard let from = order.firstIndex(of: dragging),
               let to = order.firstIndex(of: item) else { return }
@@ -325,10 +321,13 @@ private struct TabDropDelegate: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        vm.persistTabOrder()
-        dragging = nil
+        vm.dragDidDrop()
         return true
     }
 
-    func dropExited(info: DropInfo) {}
+    /// 会话取消(松手在空白处 / Esc)时只会走到这里,兜底复位透明度。
+    /// 正常在相邻标签间换位时,紧接着的 dropEntered 会取消这个延迟清理。
+    func dropExited(info: DropInfo) {
+        vm.dragDidExit()
+    }
 }

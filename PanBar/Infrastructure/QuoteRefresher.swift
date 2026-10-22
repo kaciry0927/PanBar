@@ -27,6 +27,8 @@ final class QuoteRefresher: ObservableObject {
     @Published private(set) var snapshot: PortfolioSnapshot = .empty
     @Published private(set) var quotes: [SymbolID: Quote] = [:]
     @Published private(set) var indexQuotes: [IndexQuote] = []
+    @Published private(set) var sectorGainers: [SectorBoard] = []
+    @Published private(set) var sectorLosers: [SectorBoard] = []
     @Published private(set) var lastError: String?
     @Published private(set) var lastUpdated: Date?
     /// true 表示一次网络刷新正在进行中,UI 可以显示 spinner。
@@ -37,6 +39,7 @@ final class QuoteRefresher: ObservableObject {
 
     private let service: PortfolioService
     private let indexService: IndexService
+    private let sectorService: SectorService
     private let clock: MarketClock
     private let quoteCacheRepo: QuoteCacheRepository?
     private let fxCacheRepo: FXCacheRepository?
@@ -45,15 +48,18 @@ final class QuoteRefresher: ObservableObject {
     private let alertEngine: AlertEngine?
     private var task: Task<Void, Never>?
     private var indexTask: Task<Void, Never>?
+    private var sectorTask: Task<Void, Never>?
     private var pace: Pace = .tickerOnly
     private var popoverOpen = false
     private var sleeping = false
     private var offline = false
+    private var sectorRefreshing = false
     private var observers: [NSObjectProtocol] = []
 
     init(
         service: PortfolioService,
         indexService: IndexService,
+        sectorService: SectorService,
         clock: MarketClock,
         quoteCacheRepo: QuoteCacheRepository? = nil,
         fxCacheRepo: FXCacheRepository? = nil,
@@ -63,6 +69,7 @@ final class QuoteRefresher: ObservableObject {
     ) {
         self.service = service
         self.indexService = indexService
+        self.sectorService = sectorService
         self.clock = clock
         self.quoteCacheRepo = quoteCacheRepo
         self.fxCacheRepo = fxCacheRepo
@@ -128,6 +135,9 @@ final class QuoteRefresher: ObservableObject {
         indexTask = Task { [weak self] in
             await self?.runIndexLoop()
         }
+        sectorTask = Task { [weak self] in
+            await self?.runSectorLoop()
+        }
     }
 
     func stop() {
@@ -135,11 +145,18 @@ final class QuoteRefresher: ObservableObject {
         task = nil
         indexTask?.cancel()
         indexTask = nil
+        sectorTask?.cancel()
+        sectorTask = nil
     }
 
     /// 触发立即刷新一次(不影响调度)。
     func refreshNow() {
         Task { await tick() }
+    }
+
+    /// 板块榜立即拉一次(板块 Tab 出现时调用;循环里也在跑,这里只是抢答一次)。
+    func refreshSectorsNow() {
+        Task { await tickSectors() }
     }
 
     func setPopoverOpen(_ open: Bool) {
@@ -220,6 +237,31 @@ final class QuoteRefresher: ObservableObject {
             }
         } catch {
             Log.quote.warning("index fetch failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// 板块轮询:独立 Task,间隔 30s(板块榜变动慢),休眠/离线/全市场休市时暂停。
+    private func runSectorLoop() async {
+        await tickSectors()
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            if Task.isCancelled { break }
+            if sleeping || offline { continue }
+            if !clock.anyOpen() && pauseWhenClosed { continue }
+            await tickSectors()
+        }
+    }
+
+    private func tickSectors() async {
+        guard !sectorRefreshing else { return }
+        sectorRefreshing = true
+        defer { sectorRefreshing = false }
+        do {
+            let ranking = try await sectorService.fetchRankings()
+            self.sectorGainers = ranking.gainers
+            self.sectorLosers = ranking.losers
+        } catch {
+            Log.quote.warning("sector fetch failed: \(String(describing: error), privacy: .public)")
         }
     }
 

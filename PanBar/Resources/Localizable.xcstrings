@@ -74,6 +74,41 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "预警" } }
       }
     },
+    "tab.sectors" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sectors" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "板块" } }
+      }
+    },
+    "sectors.gainers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Top Gainers" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "涨幅榜" } }
+      }
+    },
+    "sectors.losers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Top Losers" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "跌幅榜" } }
+      }
+    },
+    "sectors.empty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No sector data" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无板块数据" } }
+      }
+    },
+    "sectors.leading" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Leading" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "领涨" } }
+      }
+    },
     "summary.today" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Today" } },
