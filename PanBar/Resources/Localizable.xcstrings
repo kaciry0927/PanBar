@@ -139,6 +139,18 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "面板汇总卡片" } }
       }
     },
+    "popover.tabsHint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hidden tabs are removed from the navigation bar. You can restore them here anytime." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "隐藏的标签页会从导航栏中移除，可随时在此恢复。" } }
+      }
+    },
+    "popover.tabsSection" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Panel tabs" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "标签页显隐" } }
+      }
+    },
     "popover.showTodayPnL" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Show today's P&L" } },

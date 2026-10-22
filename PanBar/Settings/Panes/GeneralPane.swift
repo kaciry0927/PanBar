@@ -128,6 +128,15 @@ private struct GeneralPaneContent: View {
                     .foregroundColor(.secondary)
             }
 
+            Section(header: Text(L("popover.tabsSection", comment: "")).font(.headline)) {
+                ForEach(PopoverViewModel.Tab.allCases) { tab in
+                    Toggle(tab.title, isOn: tabVisibilityBinding(for: tab))
+                }
+                Text(L("popover.tabsHint", comment: ""))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             Section(header: Text(L("settings.proxySection", comment: "")).font(.headline)) {
                 Picker(L("settings.proxyMode", comment: ""), selection: $proxyMode) {
                     ForEach(NetworkConfig.ProxyMode.allCases, id: \.self) { m in
@@ -216,6 +225,20 @@ private struct GeneralPaneContent: View {
             proxyHost = container.settingsRepo.proxyHost
             proxyPortText = "\(container.settingsRepo.proxyPort)"
         }
+    }
+
+    /// 单个 tab 的显隐绑定:get 反查隐藏集,set 增删。
+    private func tabVisibilityBinding(for tab: PopoverViewModel.Tab) -> Binding<Bool> {
+        Binding(
+            get: { !prefs.popoverHiddenTabs.contains(tab.rawValue) },
+            set: { visible in
+                if visible {
+                    prefs.popoverHiddenTabs.remove(tab.rawValue)
+                } else {
+                    prefs.popoverHiddenTabs.insert(tab.rawValue)
+                }
+            }
+        )
     }
 
     private func applyProxy() {

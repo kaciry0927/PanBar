@@ -87,6 +87,7 @@ struct SettingsRepository {
         static let priceFractionDigits = "price_fraction_digits"
         static let holdingPopoverMetric = "holding_popover_metric"
         static let popoverTabOrder = "popover_tab_order"   // 面板标签顺序(逗号分隔的 tab rawValue)
+        static let popoverHiddenTabs = "popover_hidden_tabs"   // 面板被隐藏的 tab(rawValue 集合, JSON)
         static let proxyMode = "proxy_mode"            // off / system / manual
         static let proxyHost = "proxy_host"
         static let proxyPort = "proxy_port"

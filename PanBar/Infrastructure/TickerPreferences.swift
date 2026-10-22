@@ -108,6 +108,15 @@ final class TickerPreferences: ObservableObject {
             }
         }
     }
+    /// 面板底部导航栏中被用户隐藏的 tab(存 tab rawValue 集合)。空集合 = 全部显示。
+    @Published var popoverHiddenTabs: Set<String> {
+        didSet {
+            if let data = try? JSONEncoder().encode(Array(popoverHiddenTabs).sorted()),
+               let json = String(data: data, encoding: .utf8) {
+                try? repo.set(SettingsRepository.Keys.popoverHiddenTabs, json)
+            }
+        }
+    }
     /// 菜单栏展现形式。
     @Published var displayMode: TickerDisplayMode {
         didSet { try? repo.set(SettingsRepository.Keys.tickerDisplayMode, displayMode.rawValue) }
@@ -193,6 +202,13 @@ final class TickerPreferences: ObservableObject {
             self.popoverHiddenIndexIDs = Set(arr)
         } else {
             self.popoverHiddenIndexIDs = []
+        }
+        if let json = repo.string(SettingsRepository.Keys.popoverHiddenTabs),
+           let data = json.data(using: .utf8),
+           let arr = try? JSONDecoder().decode([String].self, from: data) {
+            self.popoverHiddenTabs = Set(arr)
+        } else {
+            self.popoverHiddenTabs = []
         }
         let storedDisplayMode = TickerDisplayMode(rawValue: repo.string(SettingsRepository.Keys.tickerDisplayMode) ?? "") ?? .scroll
         let migratesScrollNoCode = storedDisplayMode == .scrollNoCode

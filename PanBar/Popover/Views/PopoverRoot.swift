@@ -19,21 +19,39 @@ struct PopoverRoot: View {
                     .padding(.horizontal, 14)
                     .padding(.bottom, 10)
             }
-            tabs
-            Divider()
-            content
-                // 动态高度:不再用 maxHeight: .infinity 撑满固定 frame,整个 popover
-                // 的高度由内容自然高度决定(宽度仍由 PopoverController 注入的 frame 固定)。
-                .frame(maxWidth: .infinity, alignment: .top)
+            if !visibleTabs.isEmpty {
+                tabs
+                Divider()
+                content
+                    // 动态高度:不再用 maxHeight: .infinity 撑满固定 frame,整个 popover
+                    // 的高度由内容自然高度决定(宽度仍由 PopoverController 注入的 frame 固定)。
+                    .frame(maxWidth: .infinity, alignment: .top)
+            }
             Divider()
             footer
         }
         .onReceive(statusTimer) { statusTick = $0 }
+        .onAppear { correctCurrentTabIfHidden() }
+        .onChange(of: prefs.popoverHiddenTabs) { _ in correctCurrentTabIfHidden() }
     }
 
     /// 三张汇总卡片全部关闭时,把整块区域(含留白)收起。
     private var summaryCardsVisible: Bool {
         prefs.popoverShowTodayPnL || prefs.popoverShowAllTimePnL || prefs.popoverShowTotalAssets
+    }
+
+    /// 导航栏里实际显示的 tab(按 tabOrder 排序,过滤掉被隐藏的)。
+    /// 空 = 全部隐藏,此时 tab 区与 content 区一并收起,popover 退化成纯状态面板。
+    private var visibleTabs: [PopoverViewModel.Tab] {
+        vm.tabOrder.filter { !prefs.popoverHiddenTabs.contains($0.rawValue) }
+    }
+
+    /// 当前选中的 tab 被隐藏时,自动切到第一个可见 tab。
+    /// 全隐藏时 visibleTabs 为空,content 不渲染,currentTab 保持不变即可。
+    private func correctCurrentTabIfHidden() {
+        guard prefs.popoverHiddenTabs.contains(vm.currentTab.rawValue),
+              let first = visibleTabs.first else { return }
+        vm.currentTab = first
     }
 
     private var header: some View {
@@ -148,7 +166,7 @@ struct PopoverRoot: View {
 
     private var tabs: some View {
         HStack(spacing: 4) {
-            ForEach(vm.tabOrder) { tab in
+            ForEach(visibleTabs) { tab in
                 Button(action: { vm.currentTab = tab }) {
                     Text(tab.title)
                         .font(.system(size: 11, weight: vm.currentTab == tab ? .semibold : .regular))
