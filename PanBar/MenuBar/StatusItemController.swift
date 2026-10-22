@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import Combine
+import Darwin
 
 /// 持有 NSStatusItem 与自绘的 TickerView。
 @MainActor
@@ -38,9 +39,12 @@ final class StatusItemController {
         // 不设 autosaveName。原因:
         //  1) autosaveName 持久化的「⌘-拖动位置」在换显示器/改分辨率后会失效,
         //     可能把图标摆到屏幕外;
-        //  2) 菜单栏无图标的根因经排查是旧 bundle ID `app.panbar.PanBar.debug`
-        //     被状态栏服务器污染(见 project.yml 注释),与 autosaveName 无关;
-        //     但为稳妥起见,图标位置交给系统默认,每次启动自动排到合适位置。
+        //  2) 菜单栏无图标的根因不是 autosaveName,而是 macOS 26 StatusKit 的
+        //     菜单栏允许列表(trackedApplications)可能把本 app 记成 blocked。
+        //     如果 app 由 IDE/父应用直接拉起,系统还会把 status item 归到父应用
+        //     名下,同样会被 blocked。见 diagnoseStatusItemPlacement() 和
+        //     docs/TROUBLESHOOTING.md「菜单栏图标不显示」。
+        //  图标位置交给系统默认,每次启动自动排到合适位置。
         self.currentMode = prefs.displayMode
         self.tickerView = Self.makeView(for: prefs.displayMode, scheme: prefs.colorScheme)
         self.contextMenu = NSMenu()
@@ -190,11 +194,21 @@ final class StatusItemController {
 
     /// 启动后延迟检查 status item 是否被系统正确放置到菜单栏。
     ///
-    /// 背景:macOS 状态栏子系统会按 bundle ID 记录 status item 的历史状态;若某个
-    /// bundle ID 曾从易失路径(AppTranslocation / DMG / 临时目录)运行,系统可能拒绝
-    /// 为它的 NSStatusItem 分配菜单栏槽位,表现为「进程在跑但菜单栏没图标」——窗口
-    /// 停在内容尺寸(如 40x22)且 y 为负(屏幕外)。正常放置后窗口会被拉高到菜单栏
-    /// 厚度(本机 33pt)。这里检测到异常就写 error 日志,避免图标无声无息地消失。
+    /// macOS 26(Tahoe)的 StatusKit 引入了按 bundle ID 记录的「菜单栏允许列表」
+    /// (System Settings → Control Center → Menu Bar)。如果当前 app 被标记为
+    /// blocked,ControlCenter 会拒绝放置这个 NSStatusItem:窗口停在内容尺寸
+    /// (如 196x22)、y 为负(屏幕外)、window.screen == nil。
+    ///
+    /// 常见触发方式:
+    /// - 从 IDE / 父应用(例如 WorkBuddy)拉起进程(包括在 IDE 集成终端里
+    ///   `make launch` 或直接执行二进制),macOS 会把 status item 归到父应用的
+    ///   tracked application 名下,然后立刻 move to blocked list;
+    /// - 用户在系统设置里关过该 app 的菜单栏项,之后即使换 bundle ID 也可能
+    ///   因为旧的 menuItemLocations 映射继续被拦。
+    ///
+    /// 换 autosaveName / 重建 NSStatusItem 通常清不掉这个状态;只重启 ControlCenter
+    /// 也经常无效。这里检测到异常就写 error 日志,并弹一次带「打开菜单栏设置」
+    /// 按钮的提示,避免图标再次无声无息地消失。
     private func diagnoseStatusItemPlacement() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             guard let self, let window = self.statusItem.button?.window else { return }
@@ -202,11 +216,138 @@ final class StatusItemController {
             let thickness = NSStatusBar.system.thickness
             let tw = self.tickerView.totalWidth
             let len = self.statusItem.length
-            Log.ui.info("statusItem诊断: totalWidth=\(tw) statusItem.length=\(len) windowFrame=\(NSStringFromRect(frame)) thickness=\(thickness)")
-            let placed = frame.height >= thickness - 1 && frame.minY >= 0
-            if !placed {
-                Log.ui.error("NSStatusItem 未被系统放置:frame=\(NSStringFromRect(frame)) thickness=\(thickness) bundleID=\(Bundle.main.bundleIdentifier ?? "?") —— 该 bundle ID 可能被状态栏子系统标记为失效(曾从易失路径运行),图标将不可见")
+            let screen = window.screen
+            let hasScreen = screen != nil
+            let visible = self.statusItem.isVisible
+            let parent = Self.parentProcessDescription()
+            Log.ui.info("statusItem诊断: totalWidth=\(tw) statusItem.length=\(len) windowFrame=\(NSStringFromRect(frame)) thickness=\(thickness) hasScreen=\(hasScreen) isVisible=\(visible) parent=\(parent)")
+
+            // StatusKit 拦截的典型签名是「有 NSStatusBarWindow,但没有关联屏幕」。
+            // 另一种「看不到图标」是菜单栏空间不足:窗口已经被系统放置,但 x 被
+            // 挤到屏幕外(本机实测过 x = -69),多见于菜单栏图标很多、ticker 又设了
+            // 固定宽度。两种要分开提示;多显示器下窗口 y 可能为负,所以不能只看 y。
+            let heightOK = frame.height >= thickness - 1
+            let screenFrame = screen?.frame ?? .zero
+            let fullyOffscreen = hasScreen
+                && (frame.maxX <= screenFrame.minX || frame.minX >= screenFrame.maxX)
+            let clipped = hasScreen
+                && frame.minX < screenFrame.minX
+                && !fullyOffscreen
+            let placed = hasScreen && heightOK && !fullyOffscreen
+            if placed {
+                if clipped {
+                    Log.ui.warning("NSStatusItem 部分被挤出菜单栏: frame=\(NSStringFromRect(frame)) screen=\(NSStringFromRect(screenFrame)) —— 菜单栏图标较多,可在 PanBar 设置里改用更窄的显示模式,或减少菜单栏图标。")
+                }
+                return
             }
+
+            let bundleID = Bundle.main.bundleIdentifier ?? "?"
+            if !hasScreen {
+                Log.ui.error("NSStatusItem 未被系统放置: frame=\(NSStringFromRect(frame)) hasScreen=\(hasScreen) thickness=\(thickness) bundleID=\(bundleID) parent=\(parent) —— macOS 26 StatusKit 的菜单栏允许列表可能已把该 bundle ID 标记为 blocked。请到 系统设置 → 控制中心 → 菜单栏 允许本 app;如果是从 IDE/父应用启动的,请改用 Finder 或普通终端 open 启动。详见 docs/TROUBLESHOOTING.md。")
+                self.presentMenuBarBlockedAlertIfNeeded(bundleID: bundleID, parent: parent)
+            } else {
+                Log.ui.error("NSStatusItem 窗口异常或完全在菜单栏可视区之外: frame=\(NSStringFromRect(frame)) screen=\(NSStringFromRect(screenFrame)) thickness=\(thickness) bundleID=\(bundleID) parent=\(parent) —— 菜单栏空间不足(图标太多或 ticker 太宽)。请在 PanBar 设置里改用固定宽度/极简模式,或减少菜单栏图标。")
+                self.presentMenuBarOverflowAlertIfNeeded(bundleID: bundleID)
+            }
+        }
+    }
+
+    /// 父进程信息只用于日志/提示,帮助判断是否被 IDE(如 WorkBuddy)拉起。
+    /// 注意:LaunchServices 用 open 启动时父进程通常是 launchd,这不代表一定安全,
+    /// 真正决定归属的是 responsible process,所以提示里同时给出 bundle ID。
+    private static func parentProcessDescription() -> String {
+        let parentPID = getppid()
+        guard parentPID > 1 else { return "launchd(1)" }
+        if let app = NSRunningApplication(processIdentifier: parentPID) {
+            let name = app.localizedName ?? "?"
+            let bid = app.bundleIdentifier ?? "?"
+            return "\(name) [\(bid)] pid=\(parentPID)"
+        }
+        return "pid=\(parentPID)"
+    }
+
+    /// 每个 bundle ID + 版本只弹一次,避免每次启动都打扰用户。
+    private func presentMenuBarBlockedAlertIfNeeded(bundleID: String, parent: String) {
+        let key = "panbar.menubarBlockedAlertShown.\(bundleID).\(AppVersion.short)"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+
+        let isChinese = Locale.preferredLanguages.first?.hasPrefix("zh") ?? true
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? "PanBar"
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = isChinese
+            ? "菜单栏图标被 macOS 拦截"
+            : "Menu Bar Icon Blocked by macOS"
+        alert.informativeText = isChinese
+            ? """
+            \(appName) 的菜单栏项被 macOS 26 的 StatusKit 允许列表拦截了,所以看不到图标。
+
+            请在「系统设置 → 控制中心 → 菜单栏」中允许 \(appName) 显示。
+            如果是从 IDE / 父应用(如 WorkBuddy)启动的,系统可能把该项归到父应用名下;请改用 Finder 或普通终端启动。
+
+            当前 bundle ID: \(bundleID)
+            父进程: \(parent)
+            """
+            : """
+            macOS 26 StatusKit has blocked \(appName)'s menu bar item, so the icon is invisible.
+
+            Allow \(appName) in System Settings → Control Center → Menu Bar.
+            If the app was launched from an IDE/parent app (e.g. WorkBuddy), macOS may attribute the item to the parent; launch it from Finder or a normal Terminal instead.
+
+            Bundle ID: \(bundleID)
+            Parent: \(parent)
+            """
+        alert.addButton(withTitle: isChinese ? "打开菜单栏设置" : "Open Menu Bar Settings")
+        alert.addButton(withTitle: isChinese ? "稍后" : "Later")
+        alert.window.level = .floating
+
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn,
+           let url = URL(string: "x-apple.systempreferences:com.apple.ControlCenter-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// 菜单栏太满时,status item 会被 ControlCenter 放到可视区之外,表现为
+    /// 图标「不见了」但窗口 frame 的 x 为负。提示用户改窄 ticker 或减少图标。
+    private func presentMenuBarOverflowAlertIfNeeded(bundleID: String) {
+        let key = "panbar.menubarOverflowAlertShown.\(bundleID).\(AppVersion.short)"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+
+        let isChinese = Locale.preferredLanguages.first?.hasPrefix("zh") ?? true
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = isChinese
+            ? "菜单栏空间不足"
+            : "Menu Bar Is Full"
+        alert.informativeText = isChinese
+            ? """
+            PanBar 的状态栏项已经被系统创建,但被挤到菜单栏可视区之外,所以看不到图标。
+
+            请在 PanBar 设置里改用固定宽度或极简模式,或减少其它菜单栏图标。
+
+            当前 bundle ID: \(bundleID)
+            """
+            : """
+            PanBar's status item was created but pushed outside the visible menu bar, so the icon is hidden.
+
+            Use a fixed/narrower ticker mode in PanBar settings, or remove some other menu bar icons.
+
+            Bundle ID: \(bundleID)
+            """
+        alert.addButton(withTitle: isChinese ? "打开 PanBar 设置" : "Open PanBar Settings")
+        alert.addButton(withTitle: isChinese ? "稍后" : "Later")
+        alert.window.level = .floating
+
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            SettingsWindowController.shared.show()
         }
     }
 

@@ -60,14 +60,15 @@ targets:
       configs:
         Debug:
           # Debug 用独立 bundle ID + 独立 .app 文件名,可以和正式版并排装互不影响。
-          # bundle ID 用 dev2 而非 debug:旧 ID app.panbar.PanBar.debug 在这台机器上
-          # 曾被状态栏子系统标记为失效(历史上从 AppTranslocation/临时路径运行过),
-          # 导致 NSStatusItem 永远不被放置(窗口停在内容尺寸 40x22、y 为负,菜单栏
-          # 无图标)。这是「具体 ID 的持久化历史状态」:与 .debug 后缀无关(实测
-          # app.panbar.PanBar.debug2 / foo.debug 都正常),重启机器也清不掉(不在内存,
-          # 藏在系统级存储里)。换全新 ID 是唯一安全可控的修复;StatusItemController
-          # 里已加自检,再遇此问题会写 error 日志。见 .workbuddy/memory/2026-10-21。
-          PRODUCT_BUNDLE_IDENTIFIER: app.panbar.PanBar.dev2
+          #
+          # 注意:macOS 26(Tahoe)的 StatusKit 会按 bundle ID 记录「菜单栏允许列表」。
+          # 如果 app 由 IDE/父应用(如 WorkBuddy)拉起(包括 IDE 终端里的
+          # make launch 或直接执行二进制),status item 会被归到父应用名下并立刻
+          # blocked,表现为窗口停在 (0,-22,...,22)、screen=nil、菜单栏无图标。
+          # 换 bundle ID 只能绕过一次;根因和修复见 docs/TROUBLESHOOTING.md
+          # 「菜单栏图标不显示」。当前 Debug ID 用 dev3(dev2/debug 等在本机出现过
+          # blocked 记录,除非确认已恢复,不要改回去)。
+          PRODUCT_BUNDLE_IDENTIFIER: app.panbar.PanBar.dev3
           PRODUCT_NAME: PanBar-Dev
           BUNDLE_DISPLAY_NAME: PanBar Dev
           # Debug 走无沙盒 entitlements,Sparkle 不需要 Hardened Runtime 也能加载 XPC

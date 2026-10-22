@@ -49,7 +49,7 @@ Or build from source:
 brew install xcodegen create-dmg
 git clone https://github.com/kaciry0927/PanBar.git
 cd PanBar
-make run         # build & launch
+make run         # build & reveal the app in Finder (double-click to launch)
 ```
 
 ## License

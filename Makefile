@@ -14,12 +14,17 @@ SCHEME := PanBar
 DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer
 export DEVELOPER_DIR
 # DerivedData 路径。TRAE 等沙箱终端写不了项目内 build/,在这些环境里用
-# `make run DERIVED=/tmp/panbar-dd` 覆盖(见 docs/TROUBLESHOOTING.md 2.5)。
+# `make build DERIVED=/tmp/panbar-dd` 覆盖(见 docs/TROUBLESHOOTING.md 2.5)。
 DERIVED ?= build/dd
 APP_NAME := PanBar
-# Debug 用独立 bundle ID + 独立文件名,可以和正式版并排装互不影响
+# Debug 用独立 bundle ID + 独立文件名,可以和正式版并排装互不影响。
+# 注意:macOS 26 StatusKit 会按 bundle ID 记录菜单栏「允许列表」。从 IDE/父应用
+# 拉起(包括在 IDE 集成终端里 make launch)时,IDE 可能成为 responsible app,
+# status item 会被归到它名下并 blocked;直接执行 Contents/MacOS 二进制风险更高。
+# 最稳是 `make run`(构建后在 Finder 里双击 app);若仍无图标,见
+# docs/TROUBLESHOOTING.md「菜单栏图标不显示」。
 DEV_APP_NAME := PanBar-Dev
-DEV_BUNDLE_ID := app.panbar.PanBar.dev2
+DEV_BUNDLE_ID := app.panbar.PanBar.dev3
 DEV_APP_PATH := $(DERIVED)/Build/Products/Debug/$(DEV_APP_NAME).app
 VERSION ?= 0.1.0
 BUILD_DIR := build/Release
@@ -36,7 +41,8 @@ help:
 	@echo "PanBar build targets:"
 	@echo "  make gen              # 重新生成 Xcode 项目"
 	@echo "  make build            # Debug 构建(PanBar-Dev.app,独立 bundle ID 不影响正式版)"
-	@echo "  make run              # 构建并(重新)启动 PanBar-Dev"
+	@echo "  make run              # 构建 + 在 Finder 中定位 PanBar-Dev.app(双击启动)"
+	@echo "  make launch           # 构建 + 直接启动(可能被 macOS 归到终端/IDE 名下)"
 	@echo "  make kill             # 关掉正在跑的 PanBar-Dev"
 	@echo "  make open             # 在 Xcode 中打开"
 	@echo "  make icons            # 重新生成 AppIcon"
@@ -72,9 +78,23 @@ build: gen
 
 .PHONY: run
 run: build
-	@# 先把已经在跑的 dev 版关掉,否则 open 不会重启已有进程,改动看不到
+	@# 先把已经在跑的 dev 版关掉,否则 Finder 双击会激活旧实例
 	@pkill -f "$(DEV_APP_NAME).app/Contents/MacOS" 2>/dev/null; true
-	open $(DEV_APP_PATH)
+	@echo "✓ Built $(DEV_APP_PATH)"
+	@open -R "$(DEV_APP_PATH)"
+	@echo "→ 已在 Finder 中定位 $(DEV_APP_NAME).app,请双击启动"
+	@echo "  (由 Finder 启动可避免 macOS 把终端/IDE 记为 responsible app)"
+	@echo "  想直接启动可跑: make launch"
+
+.PHONY: launch
+launch: build
+	@# 旧行为:构建后直接 open。IDE 终端里可能被 macOS 归到 IDE 名下并拦截菜单栏图标。
+	@pkill -f "$(DEV_APP_NAME).app/Contents/MacOS" 2>/dev/null; true
+	@case "$$TERM_PROGRAM" in \
+		*JetBrains*|*vscode*|*WorkBuddy*|*Trae*) \
+			echo "⚠️  检测到 IDE 集成终端 ($$TERM_PROGRAM):菜单栏图标可能被 macOS 归到 IDE 名下并拦截;建议改用 make run + Finder 双击。";; \
+	esac
+	open "$(DEV_APP_PATH)"
 	@echo "✓ Launched $(DEV_APP_NAME) ($(DEV_BUNDLE_ID))"
 
 .PHONY: open

@@ -49,7 +49,7 @@ PanBar 把 A / 港 / 美三市行情塞进 macOS 菜单栏的一小条滚动文�
 brew install xcodegen create-dmg
 git clone https://github.com/kaciry0927/PanBar.git
 cd PanBar
-make run         # 一键构建 + 启动
+make run         # 构建 + 在 Finder 中定位 app(双击启动)
 ```
 
 ## License
