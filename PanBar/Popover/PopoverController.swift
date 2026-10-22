@@ -50,7 +50,8 @@ final class PopoverController {
             refresher: refresher,
             holdingsRepo: holdingsRepo,
             watchlistRepo: watchlistRepo,
-            settingsRepo: settingsRepo
+            settingsRepo: settingsRepo,
+            prefs: tickerPrefs
         )
         self.appearancePrefs = appearancePrefs
         self.tickerPrefs = tickerPrefs

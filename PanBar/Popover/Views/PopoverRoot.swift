@@ -318,8 +318,9 @@ struct PopoverRoot: View {
     }
 }
 
-/// 标签拖拽排序的落点代理:拖到某个标签上时实时把被拖标签移到该位置,
-/// 松手(performDrop)时才写库,避免拖拽过程中反复落盘。
+/// 标签拖拽排序的落点代理:拖到某个标签上时实时把被拖标签移到该位置。
+/// 顺序写入 prefs.popoverTabOrder(@Published,didSet 落库),设置页
+/// 「标签页显隐」监听同一份状态,因此拖拽时两处顺序同时更新。
 private struct TabDropDelegate: DropDelegate {
     let item: PopoverViewModel.Tab
     let vm: PopoverViewModel

@@ -129,7 +129,10 @@ private struct GeneralPaneContent: View {
             }
 
             Section(header: Text(L("popover.tabsSection", comment: "")).font(.headline)) {
-                ForEach(PopoverViewModel.Tab.allCases) { tab in
+                // 顺序直接取自 prefs.popoverTabOrder(popover 拖拽排序的真相源):
+                // 该属性是 @Published 且 prefs 以 @ObservedObject 注入,拖拽时本 Section
+                // 会即时重排,不依赖设置窗口重开 / 通知 / 视图重建。
+                ForEach(orderedTabs) { tab in
                     Toggle(tab.title, isOn: tabVisibilityBinding(for: tab))
                 }
                 Text(L("popover.tabsHint", comment: ""))
@@ -225,6 +228,12 @@ private struct GeneralPaneContent: View {
             proxyHost = container.settingsRepo.proxyHost
             proxyPortText = "\(container.settingsRepo.proxyPort)"
         }
+    }
+
+    /// 设置页展示的 tab 顺序:与 popover 拖拽排序同源(prefs.popoverTabOrder),
+    /// 由 Tab.ordered(from:) 统一做去重 / 补齐,避免两处各算一套。
+    private var orderedTabs: [PopoverViewModel.Tab] {
+        PopoverViewModel.Tab.ordered(from: prefs.popoverTabOrder)
     }
 
     /// 单个 tab 的显隐绑定:get 反查隐藏集,set 增删。

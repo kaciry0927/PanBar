@@ -108,6 +108,22 @@ final class TickerPreferences: ObservableObject {
             }
         }
     }
+    /// 面板标签顺序(存 tab rawValue 数组)。
+    ///
+    /// 这份 @Published 是 tab 顺序的**唯一真相源**:popover 拖拽排序直接改它,
+    /// 设置页「标签页显隐」直接读它。之所以不各自读库,是因为设置窗口
+    /// (`isReleasedWhenClosed = false`)复用时 SwiftUI 视图树常驻,onAppear /
+    /// onReceive 都不会可靠重跑;只有共享 ObservableObject 的 @Published 能让
+    /// 两个窗口同时刷新(踩坑记录见 .workbuddy/memory 2026-10-22)。
+    /// 空数组 = 首次运行,由 PopoverViewModel 补齐默认顺序后写回。
+    @Published var popoverTabOrder: [String] {
+        didSet {
+            // 拖拽 hover 会高频触发,值没变就不落库;空数组永不出库(否则下次启动丢顺序)
+            guard !popoverTabOrder.isEmpty, popoverTabOrder != oldValue else { return }
+            try? repo.set(SettingsRepository.Keys.popoverTabOrder,
+                          popoverTabOrder.joined(separator: ","))
+        }
+    }
     /// 面板底部导航栏中被用户隐藏的 tab(存 tab rawValue 集合)。空集合 = 全部显示。
     @Published var popoverHiddenTabs: Set<String> {
         didSet {
@@ -203,6 +219,11 @@ final class TickerPreferences: ObservableObject {
         } else {
             self.popoverHiddenIndexIDs = []
         }
+        // 顺序原样读出,去重 / 补齐缺失 tab 由 Popover 层的 Tab.ordered(from:) 负责
+        // (Infrastructure 不能反向依赖 Popover 的 Tab 枚举)。
+        self.popoverTabOrder = (repo.string(SettingsRepository.Keys.popoverTabOrder) ?? "")
+            .split(separator: ",")
+            .map(String.init)
         if let json = repo.string(SettingsRepository.Keys.popoverHiddenTabs),
            let data = json.data(using: .utf8),
            let arr = try? JSONDecoder().decode([String].self, from: data) {

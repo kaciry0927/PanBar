@@ -15,11 +15,21 @@ final class PopoverViewModel: ObservableObject {
             case .alerts:    return L("tab.alerts", comment: "")
             }
         }
+
+        /// 把持久化的 rawValue 顺序还原成完整、合法的顺序:解析失败项丢弃、去重、
+        /// 再按 allCases 补齐缺失项(版本升级后新增的 tab 落在末尾)。
+        /// popover 拖拽排序与设置页「标签页显隐」共用此方法,保证两处顺序同源。
+        static func ordered(from rawIDs: [String]) -> [Tab] {
+            var seen = Set<Tab>()
+            let ids = rawIDs.compactMap(Tab.init(rawValue:)).filter { seen.insert($0).inserted }
+            return ids + Tab.allCases.filter { !seen.contains($0) }
+        }
     }
 
     @Published var currentTab: Tab = .holdings
-    /// 标签栏显示顺序(可拖拽调整,持久化到 appSetting)
-    @Published private(set) var tabOrder: [Tab] = Tab.allCases
+    /// 标签栏显示顺序:直接由 prefs.popoverTabOrder(拖拽排序的真相源)派生,
+    /// 不在 VM 里另存一份,避免「popover 拖了、设置页没跟着变」的两份状态。
+    var tabOrder: [Tab] { Tab.ordered(from: prefs.popoverTabOrder) }
     @Published var holdings: [Holding] = []
     @Published var watchlist: [WatchItem] = []
 
@@ -27,6 +37,8 @@ final class PopoverViewModel: ObservableObject {
     let holdingsRepo: HoldingsRepository
     let watchlistRepo: WatchlistRepository
     let settingsRepo: SettingsRepository
+    /// 与设置窗口共享的偏好对象;tab 顺序经它广播给设置页。
+    let prefs: TickerPreferences
 
     private var observationTasks: [Task<Void, Never>] = []
 
@@ -34,39 +46,35 @@ final class PopoverViewModel: ObservableObject {
         refresher: QuoteRefresher,
         holdingsRepo: HoldingsRepository,
         watchlistRepo: WatchlistRepository,
-        settingsRepo: SettingsRepository
+        settingsRepo: SettingsRepository,
+        prefs: TickerPreferences
     ) {
         self.refresher = refresher
         self.holdingsRepo = holdingsRepo
         self.watchlistRepo = watchlistRepo
         self.settingsRepo = settingsRepo
+        self.prefs = prefs
         loadTabOrder()
         reload()
         startObserving()
     }
 
-    /// 从 appSetting 读取标签顺序;缺省/非法值/新增 tab 兜底补齐
+    /// 首次运行(库里没有顺序)或版本升级新增 tab 时,把默认值 / 缺失项补进
+    /// prefs.popoverTabOrder。normalized 与库中原值一致时完全不写,避免启动即落库。
     private func loadTabOrder() {
-        guard let raw = settingsRepo.string(SettingsRepository.Keys.popoverTabOrder) else { return }
-        var ids = raw.split(separator: ",").compactMap { Tab(rawValue: String($0)) }
-        // 去重
-        var seen = Set<Tab>()
-        ids = ids.filter { seen.insert($0).inserted }
-        // 补齐新增的 tab(版本升级后 allCases 里可能有新成员)
-        let missing = Tab.allCases.filter { !ids.contains($0) }
-        tabOrder = ids + missing
+        let stored = prefs.popoverTabOrder
+        let normalized = Tab.ordered(from: stored).map(\.rawValue)
+        guard normalized != stored else { return }
+        prefs.popoverTabOrder = normalized
     }
 
-    /// 拖拽过程中实时更新顺序(不落盘)
+    /// 拖拽过程中实时更新顺序 —— 写 prefs 即落库并广播给设置页,
+    /// 因此设置页「标签页显隐」会在拖拽时同步重排,不需要重开设置窗口。
     func reorderTabs(_ newOrder: [Tab]) {
-        guard newOrder.count == Tab.allCases.count, newOrder.map(\.id).sorted() == Tab.allCases.map(\.id).sorted() else { return }
-        tabOrder = newOrder
-    }
-
-    /// 拖拽结束后落盘
-    func persistTabOrder() {
-        let raw = tabOrder.map(\.rawValue).joined(separator: ",")
-        try? settingsRepo.set(SettingsRepository.Keys.popoverTabOrder, raw)
+        let ids = newOrder.map(\.rawValue)
+        guard ids.count == Tab.allCases.count,
+              Set(ids) == Set(Tab.allCases.map(\.rawValue)) else { return }
+        prefs.popoverTabOrder = ids
     }
 
     // MARK: 标签拖拽状态
@@ -96,12 +104,12 @@ final class PopoverViewModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
 
-    /// performDrop:落盘顺序并结束拖拽态。
+    /// performDrop:结束拖拽态。顺序已在 dropEntered → reorderTabs 里写入
+    /// prefs(并落库),这里不再重复落盘。
     func dragDidDrop() {
         dragCleanupWork?.cancel()
         dragCleanupWork = nil
         draggingTab = nil
-        persistTabOrder()
     }
 
     func reload() {
