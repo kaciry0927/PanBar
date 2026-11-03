@@ -133,10 +133,13 @@ private struct WatchRow: View {
                     Text(item.symbol.market.defaultCurrency.format(q.price, fractionDigits: priceFractionDigits))
                         .font(.system(size: 12, weight: .semibold))
                         .monospacedDigit()
-                    Text(String(format: "%+.2f%%", q.changePct * 100))
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(q.change >= 0 ? SemanticColors.up(scheme: scheme) : SemanticColors.down(scheme: scheme))
-                        .monospacedDigit()
+                    HStack(spacing: 3) {
+                        Text(signedChangeText(q))
+                        Text(String(format: "%+.2f%%", q.changePct * 100))
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(q.change >= 0 ? SemanticColors.up(scheme: scheme) : SemanticColors.down(scheme: scheme))
+                    .monospacedDigit()
                 }
             } else {
                 Text("--")
@@ -146,6 +149,13 @@ private struct WatchRow: View {
         }
         .padding(.horizontal, density.rowHorizontalPadding)
         .padding(.vertical, max(density.rowVerticalPadding - 1, 4))
+    }
+
+    /// 涨跌额(+0.35 / -1.20),小数位跟价格显示设置一致。
+    private func signedChangeText(_ q: Quote) -> String {
+        let currency = item.symbol.market.defaultCurrency
+        let sign = q.change >= 0 ? "+" : "-"
+        return sign + currency.format(q.change.magnitude, fractionDigits: priceFractionDigits)
     }
 
     private var expandChevron: some View {
