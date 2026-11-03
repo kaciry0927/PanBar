@@ -85,7 +85,9 @@ struct PortfolioPane: View {
             switch SettingsWindowController.pendingAction {
             case .addHolding:
                 SettingsWindowController.pendingAction = nil
-                showAdd = true
+                // 推迟到下一个 runloop:首帧渲染中同步置 true 会在窗口 order-front
+                // 未完成时就 beginSheet,偶发 sheet 挂上不显示、父窗口交互被吞。
+                DispatchQueue.main.async { showAdd = true }
             case .editHolding(let id):
                 SettingsWindowController.pendingAction = nil
                 if let h = holdings.first(where: { $0.id == id }) {

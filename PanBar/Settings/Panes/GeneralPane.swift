@@ -21,7 +21,10 @@ private struct GeneralPaneContent: View {
     @ObservedObject var appearance: AppearancePreferences
     @ObservedObject var prefs: TickerPreferences
 
-    @State private var launchAtLogin: Bool = LaunchAtLoginService.isEnabled
+    // 走进程内缓存,不打 XPC(SMAppService.status 同步往返可达几百 ms,
+    // 且 @State 默认值在每次构造本结构体时都会求值 —— 放 isEnabled 会把
+    // XPC 挂到每次切 tab 上)。真值由启动预热 + onAppear 后台校准维护。
+    @State private var launchAtLogin: Bool = LaunchAtLoginService.isCachedEnabled
     @State private var baseCurrency: Currency = .cny
     @State private var browserTemplate: String = BrowserURLBuilder.Template.xueqiu.rawValue
     @State private var holdingPopoverMetric: HoldingPopoverMetric = .allTime
@@ -227,6 +230,15 @@ private struct GeneralPaneContent: View {
             proxyMode = container.settingsRepo.proxyMode
             proxyHost = container.settingsRepo.proxyHost
             proxyPortText = "\(container.settingsRepo.proxyPort)"
+
+            // 后台校准登录项真值(用户可能在系统设置里改过)。值不变则无感;
+            // 若有偏差,onChange 收到的是系统真值,setEnabled 幂等(内部先查状态)。
+            Task { @MainActor in
+                let actual = await LaunchAtLoginService.refreshCacheInBackground()
+                if launchAtLogin != actual {
+                    launchAtLogin = actual
+                }
+            }
         }
     }
 

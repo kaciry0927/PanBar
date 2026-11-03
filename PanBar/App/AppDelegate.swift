@@ -88,6 +88,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // 通知权限
             NotificationService.shared.requestAuthorizationIfNeeded()
 
+            // 预热开机自启状态缓存:SMAppService.status 是同步 XPC,不让设置页
+            // 首次挂载时在主线程打(GeneralPane 的开关初值走这个缓存)。
+            Task { await LaunchAtLoginService.refreshCacheInBackground() }
+
             // 全局快捷键 ⌘⌃P
             registerGlobalHotkeyIfEnabled(container: container)
 

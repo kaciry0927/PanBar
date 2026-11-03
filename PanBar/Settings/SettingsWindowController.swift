@@ -6,15 +6,15 @@ import SwiftUI
 /// 只算一次,旧 bug 就是这个。
 @MainActor
 final class SettingsNavigation: ObservableObject {
-    /// 必须是 Optional:`List(selection:)` 需要能表示「未选中」状态(nil)。
-    /// 之前用非可选 `Pane`,首屏渲染 / 窗口激活 / sheet 关闭时 List 内部会把选中态
-    /// 短暂清成 nil,但绑定写不回 nil → List 内部状态错乱,侧边栏从此点不动(锁死)。
+    /// 保持 Optional 仅为了对外兼容(show(pane:) / preferredPane 会写非 nil 值)。
+    /// 侧边栏现在是显式 Button 高亮(见 SettingsSidebarRow),不依赖 List(selection:),
+    /// 也就不存在 List 内部清 nil 引发的锁死问题;展示统一走 ?? .general。
     @Published var selectedPane: SettingsRootView.Pane? = .general
     @Published var pendingAction: SettingsWindowController.PendingAction?
 }
 
 @MainActor
-final class SettingsWindowController {
+final class SettingsWindowController: NSObject {
     static let shared = SettingsWindowController()
 
     let navigation = SettingsNavigation()
@@ -45,7 +45,8 @@ final class SettingsWindowController {
         set { shared.navigation.pendingAction = newValue }
     }
 
-    private init() {}
+    /// 继承 NSObject 是为了 conform NSWindowDelegate(NSObjectProtocol 要求)。
+    private override init() {}
 
     func show(initialAction: PendingAction? = nil) {
         navigation.pendingAction = initialAction
@@ -94,9 +95,24 @@ final class SettingsWindowController {
         w.minSize = NSSize(width: 600, height: 480)
         w.forceCenterOnMainScreen()
         w.isReleasedWhenClosed = false
+        w.delegate = self
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         window = w
+    }
+}
+
+extension SettingsWindowController: NSWindowDelegate {
+    /// 关闭即销毁窗口。设置窗口之前是永久复用的,任何卡死的 SwiftUI presentation
+    /// 状态(sheet 挂死 / 侧边栏选中态错乱 / first responder 异常)会随缓存窗口
+    /// 一直活着,表现为「关掉设置再打开还是冻着」。销毁后每次打开都是全新
+    /// SwiftUI 树;选中的 pane 记在 SettingsNavigation(独立持有)里,重开不丢。
+    func windowWillClose(_ notification: Notification) {
+        // 下一个 runloop 再置 nil:windowWillClose 回调期间 AppKit 还在用这个窗口,
+        // 同步释放最后一个强引用有deinit 时机上的风险,推迟一拍最稳。
+        DispatchQueue.main.async { [weak self] in
+            self?.window = nil
+        }
     }
 }
 
@@ -155,27 +171,74 @@ struct SettingsRootView: View {
 
     @EnvironmentObject private var navigation: SettingsNavigation
 
+    /// 当前生效的 pane。selectedPane 保持 Optional(对外 API 兼容),展示统一走 ?? .general。
+    private var currentPane: SettingsRootView.Pane {
+        navigation.selectedPane ?? .general
+    }
+
     var body: some View {
         NavigationSplitView {
-            List(Pane.allCases, selection: $navigation.selectedPane) { pane in
-                Label(pane.title, systemImage: pane.icon).tag(pane)
+            // 注意:List 故意不用 selection: 绑定(那是 macOS 上侧边栏锁死
+            // bug 的根源 —— List 内部选中态与外部绑定脱同步)。点击由行内
+            // Button 处理,高亮由 listRowBackground 按 navigation 状态画。
+            // 没有隐藏选中状态,就不存在脱同步;原生侧边栏材质/行高照常保留。
+            List {
+                ForEach(Pane.allCases) { pane in
+                    SettingsSidebarRow(
+                        pane: pane,
+                        isSelected: currentPane == pane
+                    ) {
+                        navigation.selectedPane = pane
+                    }
+                    .listRowBackground(
+                        Group {
+                            if currentPane == pane {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.accentColor.opacity(0.25))
+                                    .padding(.horizontal, 6)
+                            }
+                        }
+                    )
+                }
             }
             .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 200)
         } detail: {
-            switch navigation.selectedPane ?? .general {
-            case .general:     GeneralPane()
-            case .ticker:      TickerPane()
-            case .portfolio:   PortfolioPane()
-            case .watchlist:   WatchlistPane()
-            case .alerts:      AlertsPane()
-            case .dataSources: DataSourcesPane()
-            case .fx:          FXPane()
-            case .markets:     MarketsPane()
-            case .about:       AboutPane()
-            #if DEBUG
-            case .debug:       DebugPane()
-            #endif
+            Group {
+                switch currentPane {
+                case .general:     GeneralPane()
+                case .ticker:      TickerPane()
+                case .portfolio:   PortfolioPane()
+                case .watchlist:   WatchlistPane()
+                case .alerts:      AlertsPane()
+                case .dataSources: DataSourcesPane()
+                case .fx:          FXPane()
+                case .markets:     MarketsPane()
+                case .about:       AboutPane()
+                #if DEBUG
+                case .debug:       DebugPane()
+                #endif
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+}
+
+/// 侧边栏单行:普通 Button + 外部 listRowBackground 高亮。
+/// 不用 List(selection:) 的原因见 body 内注释 —— macOS 上 List 的选中态
+/// 内部缓存与外部绑定脱同步会导致整栏锁死(0b88219 改 Optional 只堵了一半)。
+private struct SettingsSidebarRow: View {
+    let pane: SettingsRootView.Pane
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(pane.title, systemImage: pane.icon)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(isSelected ? .primary : .secondary)
     }
 }

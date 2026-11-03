@@ -39,7 +39,8 @@ struct WatchlistPane: View {
             reload()
             if SettingsWindowController.pendingAction == .addWatch {
                 SettingsWindowController.pendingAction = nil
-                showAdd = true
+                // 同 PortfolioPane:推迟一拍,避免窗口 order-front 中 beginSheet 挂死。
+                DispatchQueue.main.async { showAdd = true }
             }
         }
         .sheet(isPresented: $showAdd) {
