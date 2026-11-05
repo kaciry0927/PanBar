@@ -4,7 +4,7 @@ import Combine
 @MainActor
 final class PopoverViewModel: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
-        case holdings, watchlist, indices, sectors, alerts
+        case holdings, watchlist, indices, sectors, alerts, futures
         var id: String { rawValue }
         var title: String {
             switch self {
@@ -13,6 +13,7 @@ final class PopoverViewModel: ObservableObject {
             case .indices:   return L("tab.indices", comment: "")
             case .sectors:   return L("tab.sectors", comment: "")
             case .alerts:    return L("tab.alerts", comment: "")
+            case .futures:   return L("tab.futures", comment: "")
             }
         }
 

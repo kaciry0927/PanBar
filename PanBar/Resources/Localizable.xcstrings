@@ -1,6 +1,42 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
+    "futures.empty" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading futures…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "期货加载中…" } }
+      }
+    },
+    "futures.hide" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hide instrument" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "隐藏品种" } }
+      }
+    },
+    "futures.hidden.show" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示" } }
+      }
+    },
+    "futures.hidden.restoreAll" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore all" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部恢复" } }
+      }
+    },
+    "futures.hiddenCount" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld hidden" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld 个品种已隐藏" } }
+      }
+    },
+    "tab.futures" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Futures" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "期货" } }
+      }
+    },
     "market.a" : {
       "extractionState" : "manual",
       "localizations" : {

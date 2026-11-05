@@ -203,6 +203,7 @@ struct PopoverRoot: View {
         case .indices:   IndicesTab()
         case .sectors:   SectorsTab()
         case .alerts:    AlertsTab()
+        case .futures:   FuturesTab()
         }
     }
 

@@ -19,11 +19,15 @@ struct IntradaySectionView: View {
     /// 与 store 的 key 一致(股票 storageKey / 指数 descriptor.id)。
     let key: String
     let scheme: TickerColorScheme
+    /// 参考线校正(可选):期货分时的 provider 拿不到昨结算,用段首 open 占位;
+    /// 期货 tab 传入 FuturesQuote.prevSettlement 保证参考线与涨跌配色基准正确。
+    var prevCloseOverride: Double? = nil
 
     var body: some View {
         Group {
             if let s = store.series[key] {
-                IntradayChartView(series: s, scheme: scheme)
+                let corrected = prevCloseOverride.map(s.withPrevClose) ?? s
+                IntradayChartView(series: corrected, scheme: scheme)
                     .frame(maxWidth: .infinity)
             } else if store.loadingKeys.contains(key) {
                 HStack(spacing: 6) {

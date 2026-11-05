@@ -17,6 +17,7 @@ final class DependencyContainer {
     let provider: QuoteProvider
     let indexService: IndexService
     let sectorService: SectorService
+    let futuresService: FuturesService
     let symbolSearch: SymbolSearch
     let fx: FXService
     let portfolioService: PortfolioService
@@ -70,6 +71,7 @@ final class DependencyContainer {
         self.provider = orchestrator
         self.indexService = IndexService()
         self.sectorService = SectorService()
+        self.futuresService = FuturesService()
         self.symbolSearch = SymbolSearch()
 
         let fxProvider = EastMoneyFXProvider()
@@ -77,7 +79,7 @@ final class DependencyContainer {
         self.fx = fx
 
         self.clock = MarketClock(settingsRepo: settingsRepo)
-        self.intradayService = IntradayService()
+        self.intradayService = IntradayService(sinaFutures: SinaFuturesIntradayProvider())
         self.intradayStore = IntradayStore(service: intradayService, clock: clock)
         self.portfolioService = PortfolioService(
             holdingsRepo: holdingsRepo,
@@ -96,7 +98,8 @@ final class DependencyContainer {
             fxCacheRepo: fxCacheRepo,
             holdingsRepo: holdingsRepo,
             settingsRepo: settingsRepo,
-            alertEngine: alertEngine
+            alertEngine: alertEngine,
+            futuresService: futuresService
         )
         self.networkMonitor = NetworkMonitor()
         self.tickerPrefs = TickerPreferences(repo: settingsRepo)

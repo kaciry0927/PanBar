@@ -13,15 +13,18 @@ actor IntradayService {
 
     private let east: EastMoneyIntradayProvider
     private let yahoo: YahooIntradayProvider
+    private let sinaFutures: SinaFuturesIntradayProvider
 
     private var cache: [String: (series: IntradaySeries, at: Date)] = [:]
     /// key: IntradayTarget.cacheKey → 冷却截止时间
     private var emCooldownUntil: [String: Date] = [:]
 
     init(east: EastMoneyIntradayProvider = EastMoneyIntradayProvider(),
-         yahoo: YahooIntradayProvider = YahooIntradayProvider()) {
+         yahoo: YahooIntradayProvider = YahooIntradayProvider(),
+         sinaFutures: SinaFuturesIntradayProvider = SinaFuturesIntradayProvider()) {
         self.east = east
         self.yahoo = yahoo
+        self.sinaFutures = sinaFutures
     }
 
     func fetch(_ target: IntradayTarget) async throws -> IntradaySeries {
@@ -43,6 +46,12 @@ actor IntradayService {
         case .sector(let b):
             // 行业板块:东财 trends2 支持板块 secid(90.BKxxxx),只有东财一条路
             return try await eastWithRetry(secid: "90.\(b.code)", cacheKey: b.code, market: .a)
+
+        case .futures(let d):
+            // 期货全部走新浪分时(market=nil 数据自描述)。
+            // series.prevClose 由新浪侧用段首 open 占位,FuturesTab 会用昨结算校正。
+            guard case .sina(let sym) = d.source else { throw ProviderError.empty }
+            return try await sinaFutures.fetchIntraday(secid: sym, cacheKey: d.id, market: nil)
 
         case .stock(let s):
             let key = target.cacheKey

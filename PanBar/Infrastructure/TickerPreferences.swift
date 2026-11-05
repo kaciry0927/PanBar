@@ -108,6 +108,15 @@ final class TickerPreferences: ObservableObject {
             }
         }
     }
+    /// 期货 Tab 中被用户隐藏的品种(存 FuturesDescriptor.id 集合)。空集合 = 全部显示。
+    @Published var popoverHiddenFuturesIDs: Set<String> {
+        didSet {
+            if let data = try? JSONEncoder().encode(Array(popoverHiddenFuturesIDs).sorted()),
+               let json = String(data: data, encoding: .utf8) {
+                try? repo.set(SettingsRepository.Keys.popoverHiddenFuturesIDs, json)
+            }
+        }
+    }
     /// 面板标签顺序(存 tab rawValue 数组)。
     ///
     /// 这份 @Published 是 tab 顺序的**唯一真相源**:popover 拖拽排序直接改它,
@@ -218,6 +227,13 @@ final class TickerPreferences: ObservableObject {
             self.popoverHiddenIndexIDs = Set(arr)
         } else {
             self.popoverHiddenIndexIDs = []
+        }
+        if let json = repo.string(SettingsRepository.Keys.popoverHiddenFuturesIDs),
+           let data = json.data(using: .utf8),
+           let arr = try? JSONDecoder().decode([String].self, from: data) {
+            self.popoverHiddenFuturesIDs = Set(arr)
+        } else {
+            self.popoverHiddenFuturesIDs = []
         }
         // 顺序原样读出,去重 / 补齐缺失 tab 由 Popover 层的 Tab.ordered(from:) 负责
         // (Infrastructure 不能反向依赖 Popover 的 Tab 枚举)。

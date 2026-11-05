@@ -27,6 +27,7 @@ final class QuoteRefresher: ObservableObject {
     @Published private(set) var snapshot: PortfolioSnapshot = .empty
     @Published private(set) var quotes: [SymbolID: Quote] = [:]
     @Published private(set) var indexQuotes: [IndexQuote] = []
+    @Published private(set) var futuresQuotes: [FuturesQuote] = []
     @Published private(set) var sectorGainers: [SectorBoard] = []
     @Published private(set) var sectorLosers: [SectorBoard] = []
     @Published private(set) var lastError: String?
@@ -40,6 +41,7 @@ final class QuoteRefresher: ObservableObject {
     private let service: PortfolioService
     private let indexService: IndexService
     private let sectorService: SectorService
+    private let futuresService: FuturesService?
     private let clock: MarketClock
     private let quoteCacheRepo: QuoteCacheRepository?
     private let fxCacheRepo: FXCacheRepository?
@@ -49,6 +51,7 @@ final class QuoteRefresher: ObservableObject {
     private var task: Task<Void, Never>?
     private var indexTask: Task<Void, Never>?
     private var sectorTask: Task<Void, Never>?
+    private var futuresTask: Task<Void, Never>?
     private var pace: Pace = .tickerOnly
     private var popoverOpen = false
     private var sleeping = false
@@ -65,11 +68,13 @@ final class QuoteRefresher: ObservableObject {
         fxCacheRepo: FXCacheRepository? = nil,
         holdingsRepo: HoldingsRepository? = nil,
         settingsRepo: SettingsRepository? = nil,
-        alertEngine: AlertEngine? = nil
+        alertEngine: AlertEngine? = nil,
+        futuresService: FuturesService? = nil
     ) {
         self.service = service
         self.indexService = indexService
         self.sectorService = sectorService
+        self.futuresService = futuresService
         self.clock = clock
         self.quoteCacheRepo = quoteCacheRepo
         self.fxCacheRepo = fxCacheRepo
@@ -138,6 +143,11 @@ final class QuoteRefresher: ObservableObject {
         sectorTask = Task { [weak self] in
             await self?.runSectorLoop()
         }
+        if futuresService != nil {
+            futuresTask = Task { [weak self] in
+                await self?.runFuturesLoop()
+            }
+        }
     }
 
     func stop() {
@@ -147,11 +157,18 @@ final class QuoteRefresher: ObservableObject {
         indexTask = nil
         sectorTask?.cancel()
         sectorTask = nil
+        futuresTask?.cancel()
+        futuresTask = nil
     }
 
     /// 触发立即刷新一次(不影响调度)。
     func refreshNow() {
         Task { await tick() }
+    }
+
+    /// 期货立即拉一次(期货 tab 出现时抢答;循环里也在跑)。
+    func refreshFuturesNow() {
+        Task { await tickFutures() }
     }
 
     /// 板块榜立即拉一次(板块 Tab 出现时调用;循环里也在跑,这里只是抢答一次)。
@@ -237,6 +254,33 @@ final class QuoteRefresher: ObservableObject {
             }
         } catch {
             Log.quote.warning("index fetch failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// 期货轮询:独立 Task,间隔 15s。
+    ///
+    /// ⚠️ 暂停条件**不复用** `!clock.anyOpen() && pauseWhenClosed`:外盘期货
+    /// (纳指/布油近全天候、日经夜盘)恰恰在 A/HK/US 全收的夜里最活跃,
+    /// 全市场休市闸门会把期货 tab 冻在白天收盘价。仅休眠/离线时暂停。
+    private func runFuturesLoop() async {
+        await tickFutures()
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 15_000_000_000)
+            if Task.isCancelled { break }
+            if sleeping || offline { continue }
+            await tickFutures()
+        }
+    }
+
+    private func tickFutures() async {
+        guard let futuresService else { return }
+        do {
+            let result = try await futuresService.fetchAll()
+            await MainActor.run {
+                self.futuresQuotes = result
+            }
+        } catch {
+            Log.quote.warning("futures fetch failed: \(String(describing: error), privacy: .public)")
         }
     }
 

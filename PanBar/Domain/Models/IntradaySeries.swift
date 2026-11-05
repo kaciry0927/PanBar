@@ -30,29 +30,49 @@ struct IntradaySeries: Sendable, Equatable {
     /// 收盘时间标签,如 "15:00" / "16:00"。
     let closeTimeLabel: String
     let fetchedAt: Date
+
+    /// 返回替换了 prevClose 的副本(期货分时:新浪 getMinK 不带昨结算,
+    /// provider 只能给段首 open 占位,由调用侧用 FuturesQuote.prevSettlement 校正)。
+    func withPrevClose(_ value: Double) -> IntradaySeries {
+        IntradaySeries(
+            cacheKey: cacheKey,
+            prevClose: value,
+            points: points,
+            midSeq: midSeq,
+            closeSeq: closeSeq,
+            openTimeLabel: openTimeLabel,
+            midTimeLabel: midTimeLabel,
+            closeTimeLabel: closeTimeLabel,
+            fetchedAt: fetchedAt
+        )
+    }
 }
 
-/// 分时请求目标:股票(自选/持仓)、指数(大盘)或行业板块。
+/// 分时请求目标:股票(自选/持仓)、指数(大盘)、行业板块或期货主力连续。
 enum IntradayTarget: Sendable, Hashable {
     case stock(SymbolID)
     case index(IndexDescriptor)
     case sector(SectorBoard)
+    case futures(FuturesDescriptor)
 
     var cacheKey: String {
         switch self {
         case .stock(let s): return s.storageKey
         case .index(let d): return d.id
         case .sector(let b): return b.code
+        case .futures(let d): return d.id
         }
     }
 
-    /// 指数可能是全球指数(market 为 nil),此时不做休市跳过优化。
+    /// 指数/期货可能是全球标的(market 为 nil),此时不做休市跳过优化;
+    /// 外盘期货时段不规则,同样走"数据自描述"路径。
     /// 板块恒为 A 股行业,market = .a。
     var market: Market? {
         switch self {
         case .stock(let s): return s.market
         case .index(let d): return d.market
         case .sector:       return .a
+        case .futures:      return nil
         }
     }
 }
