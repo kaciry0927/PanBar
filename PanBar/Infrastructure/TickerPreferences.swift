@@ -179,6 +179,10 @@ final class TickerPreferences: ObservableObject {
             }
         }
     }
+    /// 滚动 / 轮播条目中段(名称与涨幅之间)显示什么:不显示 / 现价 / 涨跌金额。
+    @Published var middleDisplay: TickerMiddleDisplay {
+        didSet { try? repo.set(SettingsRepository.Keys.tickerMiddleDisplay, middleDisplay.rawValue) }
+    }
 
     private let repo: SettingsRepository
 
@@ -285,6 +289,10 @@ final class TickerPreferences: ObservableObject {
         self.priceFractionDigits = Self.clampPriceFractionDigits(
             Int(repo.string(SettingsRepository.Keys.priceFractionDigits) ?? "") ?? 2
         )
+        // 缺省视为显示现价(与旧行为一致)
+        self.middleDisplay = TickerMiddleDisplay(
+            rawValue: repo.string(SettingsRepository.Keys.tickerMiddleDisplay) ?? ""
+        ) ?? .price
         migrateMinimalModeIfNeeded()
     }
 
@@ -342,6 +350,22 @@ enum MinimalMetric: String, CaseIterable, Identifiable, Codable {
         case .todayPnL:    return L("summary.today", comment: "")
         case .allTimePnL:  return L("summary.allTime", comment: "")
         case .totalAssets: return L("summary.totalAssets", comment: "")
+        }
+    }
+}
+
+/// 滚动 / 轮播条目中段(名称与涨幅之间)显示什么。
+enum TickerMiddleDisplay: String, CaseIterable, Identifiable, Codable {
+    case hidden        // 名称+涨幅
+    case price         // 名称+现价+涨幅(默认,与旧版一致)
+    case changeAmount  // 名称+涨跌金额+涨幅(不带货币符号)
+
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .hidden:       return L("ticker.middle.hidden", comment: "")
+        case .price:        return L("ticker.middle.price", comment: "")
+        case .changeAmount: return L("ticker.middle.changeAmount", comment: "")
         }
     }
 }

@@ -75,7 +75,8 @@ final class StatusItemController {
             scheme: prefs.colorScheme,
             showsQuoteCode: prefs.showQuoteCode,
             showsQuoteName: prefs.showQuoteName,
-            priceFractionDigits: prefs.priceFractionDigits
+            priceFractionDigits: prefs.priceFractionDigits,
+            middleDisplay: prefs.middleDisplay
         )
         // mode 变化:整个 view 都要换
         if prefs.displayMode != currentMode {

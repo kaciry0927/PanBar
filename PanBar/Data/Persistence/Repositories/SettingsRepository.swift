@@ -86,6 +86,7 @@ struct SettingsRepository {
         static let popoverShowAllTimePnL = "popover_show_alltime_pnl"   // 面板顶部"累计"卡片
         static let popoverShowTotalAssets = "popover_show_total_assets" // 面板顶部"总资产"卡片
         static let priceFractionDigits = "price_fraction_digits"
+        static let tickerMiddleDisplay = "ticker_middle_display" // 滚动条目中段:隐藏 / 现价 / 涨跌金额
         static let holdingPopoverMetric = "holding_popover_metric"
         static let popoverTabOrder = "popover_tab_order"   // 面板标签顺序(逗号分隔的 tab rawValue)
         static let popoverHiddenTabs = "popover_hidden_tabs"   // 面板被隐藏的 tab(rawValue 集合, JSON)

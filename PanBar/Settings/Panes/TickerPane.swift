@@ -93,6 +93,11 @@ private struct TickerPaneContent: View {
                 if showsQuoteContentControls {
                     Toggle(L("ticker.showQuoteCode", comment: ""), isOn: $prefs.showQuoteCode)
                     Toggle(L("ticker.showQuoteName", comment: ""), isOn: $prefs.showQuoteName)
+                    Picker(L("ticker.middleDisplay", comment: ""), selection: $prefs.middleDisplay) {
+                        ForEach(TickerMiddleDisplay.allCases) { m in
+                            Text(m.displayName).tag(m)
+                        }
+                    }
                 }
             }
 

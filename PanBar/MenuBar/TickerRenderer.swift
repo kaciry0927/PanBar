@@ -24,6 +24,8 @@ struct TickerRenderer {
     var showsQuoteName: Bool = true
     /// 价格显示小数位数(个股 / 指数),由用户在设置里配置。
     var priceFractionDigits: Int = 2
+    /// 中段(名称与涨幅之间)显示什么:不显示 / 现价 / 涨跌金额。
+    var middleDisplay: TickerMiddleDisplay = .price
 
     /// 涨色 / 跌色:走 SemanticColors,与 Popover 保持一致 + 菜单栏对比度优化。
     private var upColor: NSColor { SemanticColors.upNS(scheme: scheme) }
@@ -76,7 +78,9 @@ struct TickerRenderer {
 
         let s = NSMutableAttributedString()
         s.append(NSAttributedString(string: q.descriptor.displayName + " ", attributes: nameAttr))
-        s.append(NSAttributedString(string: formatPrice(q.price) + " ", attributes: valueAttr))
+        if let middle = middleText(price: q.price, change: q.change) {
+            s.append(NSAttributedString(string: middle + " ", attributes: valueAttr))
+        }
         s.append(NSAttributedString(string: pctText, attributes: pctAttr))
         return s
     }
@@ -142,9 +146,31 @@ struct TickerRenderer {
         if showsQuoteName && !name.isEmpty {
             s.append(NSAttributedString(string: name + " ", attributes: nameAttr))
         }
-        s.append(NSAttributedString(string: formatPrice(q.price) + " ", attributes: valueAttr))
+        if let middle = middleText(price: q.price, change: q.change) {
+            s.append(NSAttributedString(string: middle + " ", attributes: valueAttr))
+        }
         s.append(NSAttributedString(string: pctText, attributes: pctAttr))
         return s
+    }
+
+    /// 中段文本(名称与涨幅之间)。返回 nil = 不显示该段。
+    private func middleText(price: Decimal, change: Decimal) -> String? {
+        switch middleDisplay {
+        case .hidden:
+            return nil
+        case .price:
+            return formatPrice(price)
+        case .changeAmount:
+            return formatChangeAmount(change)
+        }
+    }
+
+    /// 涨跌金额,不带货币符号:"+12.34" / "-3.20"。
+    /// 不区分币种 —— 同一条滚动串里可能混着 A 股 / 美股 / 港股,带符号反而误导。
+    /// 0 按 "+" 处理,与涨幅符号规则保持一致("+0.00")。
+    private func formatChangeAmount(_ change: Decimal) -> String {
+        let sign = change >= 0 ? "+" : "-"
+        return sign + formatPrice(change.magnitude)
     }
 
     /// 截断超长名称,英文名 12 字符内,中文名 6 字内,避免单只票占太长。

@@ -331,6 +331,30 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "只显示一个你选的数字 + ↑↓ 箭头,菜单栏最不占地方。" } }
       }
     },
+    "ticker.middle.changeAmount" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Change amount" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "涨跌金额" } }
+      }
+    },
+    "ticker.middle.hidden" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hidden" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "不显示" } }
+      }
+    },
+    "ticker.middle.price" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current price" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "现价" } }
+      }
+    },
+    "ticker.middleDisplay" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Middle value" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "中间数值" } }
+      }
+    },
     "ticker.minimalMetric" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Show metric" } },
