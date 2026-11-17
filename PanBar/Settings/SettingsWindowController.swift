@@ -74,12 +74,24 @@ final class SettingsWindowController: NSObject {
     }
 
     private func showWindow() {
-        if let window = window {
+        // LSUIElement(.accessory) app 的窗口默认拿不到 key/first responder:
+        // NSApp.activate() 对 accessory app 基本无效,窗口虽显示却是非激活态 ——
+        // 表现为控件灰掉、点第一下才唤醒、sheet 挂不上(见诊断日志)。
+        // 打开真窗口前临时切到 .regular,让 AppKit 正常激活并给窗口 key 状态;
+        // 关闭后切回 .accessory,保持菜单栏 app 不占 Dock。
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
+        if let window = window, window.isVisible {
             window.ensureVisibleOnScreen() // 外接屏拔掉后窗口可能悬在已不存在的屏幕坐标上
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
+            logWindowState(window, phase: "reuse")
             return
         }
+        // window 可能在 windowWillClose 的异步清理窗口里(已关闭但引用还在)。
+        // 直接清空重建,别对正在关闭的窗口 makeKeyAndOrderFront(无效,像"卡住")。
+        window = nil
         guard let container = DependencyContainer.shared else { return }
         let view = SettingsRootView()
             .environmentObject(container.refresher)
@@ -99,6 +111,17 @@ final class SettingsWindowController: NSObject {
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         window = w
+        logWindowState(w, phase: "create")
+    }
+
+    /// 记录窗口是否拿到 key/激活状态。用户报"卡住/图标灰/功能点不动"时,
+    /// 这些值是第一手证据:accessory 下通常 isActive=false、isKeyWindow=false。
+    private func logWindowState(_ w: NSWindow, phase: String) {
+        // 延迟到下一个 runloop:,makeKeyAndOrderFront 后 AppKit 才完成 key 状态更新
+        DispatchQueue.main.async {
+            let policy = NSApp.activationPolicy().rawValue
+            Log.ui.info("设置窗口[\(phase, privacy: .public)]: policy=\(policy) isActive=\(NSApp.isActive) isKey=\(w.isKeyWindow) visible=\(w.isVisible)")
+        }
     }
 }
 
@@ -108,10 +131,24 @@ extension SettingsWindowController: NSWindowDelegate {
     /// 一直活着,表现为「关掉设置再打开还是冻着」。销毁后每次打开都是全新
     /// SwiftUI 树;选中的 pane 记在 SettingsNavigation(独立持有)里,重开不丢。
     func windowWillClose(_ notification: Notification) {
+        let closing = notification.object as? NSWindow
         // 下一个 runloop 再置 nil:windowWillClose 回调期间 AppKit 还在用这个窗口,
         // 同步释放最后一个强引用有deinit 时机上的风险,推迟一拍最稳。
         DispatchQueue.main.async { [weak self] in
-            self?.window = nil
+            guard let self else { return }
+            // 只清"仍在关闭的那一个"。若期间用户已经重开(window 换成新窗口),
+            // 这次延迟清理绝不能误清新窗口 —— 否则 controller 丢失对新窗口的
+            // 引用,下次 show 又建一个,旧的永远关不掉。
+            guard self.window == nil || self.window === closing else { return }
+            self.window = nil
+            // 没有其它可见内容窗口(状态栏窗口不算)时切回 .accessory,
+            // 保持菜单栏 app 不占 Dock。
+            let otherContent = NSApp.windows.contains {
+                $0.isVisible && $0 !== closing && !$0.className.contains("StatusBar")
+            }
+            if !otherContent {
+                NSApp.setActivationPolicy(.accessory)
+            }
         }
     }
 }
